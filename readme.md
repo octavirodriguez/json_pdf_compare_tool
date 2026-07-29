@@ -1,4 +1,4 @@
-# Auditor IRS
+# JSON-PDF COMPARE TOOL
 
 A tool for auditing PDF and JSON files.
 
