@@ -1,2 +1,20 @@
+# macOS metadata
 .DS_Store
 **/.DS_Store
+
+# Python virtual environment
+venv/
+ENV/
+env/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Generated Audit Reports
+reports/
+
+# IDE & Editor settings
+.vscode/
+.idea/

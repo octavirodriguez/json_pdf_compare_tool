@@ -6,182 +6,194 @@ from pathlib import Path
 import pypdf
 
 
-def extreure_text_pdf(ruta_pdf):
-    """Extreu tot el text pla d'un PDF."""
+def extract_pdf_text(pdf_path):
+    """Extracts all plain text from a PDF file."""
     try:
-        reader = pypdf.PdfReader(ruta_pdf)
+        reader = pypdf.PdfReader(pdf_path)
         text = ""
         for page in reader.pages:
             text += page.extract_text() or ""
         return text
     except Exception as e:
-        print(f"❌ Error llegint el PDF {ruta_pdf}: {e}")
+        print(f"❌ Error reading PDF {pdf_path}: {e}")
         return ""
 
 
-def comparar_json_amb_pdf(dades_json, text_pdf):
-    """Recorre el JSON recursivament i comprova si els valors existeixen al PDF."""
-    errors = []
-    encerts = []
+def compare_json_with_pdf(json_data, pdf_text):
+    """Recursively walks through the JSON and verifies if values exist within the PDF text."""
+    mismatches = []
+    matches = []
 
-    def generar_variants_numeriques(valor_str):
-        variants = [valor_str]
+    def generate_value_variants(value_str):
+        variants = [value_str]
+
+        # 1. Variants for float/currency numbers
         try:
-            val_float = float(valor_str)
-            # Format europeu amb punts de milers i coma decimal (1.166,34)
+            val_float = float(value_str)
+            # European format with dot for thousands and comma for decimals (1.166,34)
             variants.append(f"{val_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-            # Format europeu amb punts de milers i punt decimal (1.166.34)
+            # European format with dot for thousands and dot for decimals (1.166.34)
             variants.append(f"{val_float:,.2f}".replace(",", "."))
         except ValueError:
             pass
+
+        # 2. Variants for ISO dates (YYYY-MM-DD -> DD/MM/YYYY)
+        try:
+            date_obj = datetime.strptime(value_str, "%Y-%m-%d")
+            variants.append(date_obj.strftime("%d/%m/%Y"))
+            variants.append(date_obj.strftime("%d-%m-%Y"))
+        except ValueError:
+            pass
+
         return variants
 
-    def buscar_recursia(obj, ruta=""):
+    def search_recursive(obj, path=""):
         if isinstance(obj, dict):
             for k, v in obj.items():
-                buscar_recursia(v, f"{ruta}.{k}" if ruta else k)
+                search_recursive(v, f"{path}.{k}" if path else k)
         elif isinstance(obj, list):
             for i, elem in enumerate(obj):
-                buscar_recursia(elem, f"{ruta}[{i}]")
+                search_recursive(elem, f"{path}[{i}]")
         elif obj is not None and str(obj).strip() != "":
-            valor_str = str(obj).strip()
+            value_str = str(obj).strip()
 
-            if valor_str.lower() in ["true", "false"]:
+            if value_str.lower() in ["true", "false"]:
                 return
 
-            variants = generar_variants_numeriques(valor_str)
-            if any(var in text_pdf for var in variants):
-                encerts.append((ruta, valor_str))
+            variants = generate_value_variants(value_str)
+            if any(var in pdf_text for var in variants):
+                matches.append((path, value_str))
             else:
-                errors.append((ruta, valor_str))
+                mismatches.append((path, value_str))
 
-    buscar_recursia(dades_json)
-    return encerts, errors
+    search_recursive(json_data)
+    return matches, mismatches
 
 
-def generar_report_markdown(resultats, dir_reports):
-    """Genera un fitxer Markdown clar, estructurat i comentat."""
-    ara = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    nom_fitxer_report = f"report_auditoria_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
-    ruta_report = os.path.join(dir_reports, nom_fitxer_report)
+def generate_markdown_report(results, reports_dir):
+    """Generates a clean and structured Markdown audit report."""
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    report_filename = f"audit_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+    report_path = os.path.join(reports_dir, report_filename)
 
-    total_docs = len(resultats)
-    docs_correctes = sum(1 for r in resultats if len(r["errors"]) == 0)
-    docs_amb_errors = total_docs - docs_correctes
-    total_incidencies = sum(len(r["errors"]) for r in resultats)
+    total_docs = len(results)
+    successful_docs = sum(1 for r in results if len(r["mismatches"]) == 0)
+    failed_docs = total_docs - successful_docs
+    total_issues = sum(len(r["mismatches"]) for r in results)
 
     md = []
-    md.append("# 📊 Informe d'Auditoria IRS (Model 3)\n")
-    md.append(f"**Data d'execució:** `{ara}`  \n")
-    md.append(f"**Ubicació de l'informe:** `{ruta_report}`\n")
+    md.append("# 📊 IRS Audit Report (Model 3)\n")
+    md.append(f"**Execution Date:** `{now}`  \n")
+    md.append(f"**Report Path:** `{report_path}`\n")
     md.append("---\n")
 
-    # Resum executiu
-    md.append("## 📈 Resum Executiu\n")
-    md.append(f"- **Documents analitzats:** {total_docs}")
-    md.append(f"- **Documents 100% correctes:** {docs_correctes} ✅")
-    md.append(f"- **Documents amb incidències:** {docs_amb_errors} ⚠️")
-    md.append(f"- **Total d'incidències trobades:** {total_incidencies}\n")
+    # Executive Summary
+    md.append("## 📈 Executive Summary\n")
+    md.append(f"- **Analyzed Documents:** {total_docs}")
+    md.append(f"- **Fully Verified Documents:** {successful_docs} ✅")
+    md.append(f"- **Documents with Issues:** {failed_docs} ⚠️")
+    md.append(f"- **Total Discrepancies Found:** {total_issues}\n")
 
-    # Taula d'estat
-    md.append("### 📑 Estat per Document\n")
-    md.append("| Document | Correctes | Incidències | Estat |")
+    # Status Table
+    md.append("### 📑 Document Status Overview\n")
+    md.append("| Document | Matches | Discrepancies | Status |")
     md.append("| :--- | :---: | :---: | :---: |")
-    for r in resultats:
-        estat = "✅ OK" if len(r["errors"]) == 0 else "❌ AMB INCIDÈNCIES"
-        md.append(f"| `{r['nom']}` | {len(r['encerts'])} | {len(r['errors'])} | {estat} |")
+    for r in results:
+        status = "✅ OK" if len(r["mismatches"]) == 0 else "❌ ISSUES FOUND"
+        md.append(f"| `{r['name']}` | {len(r['matches'])} | {len(r['mismatches'])} | {status} |")
     md.append("\n---\n")
 
-    # Detall per document
-    md.append("## 🔍 Detall d'Auditoria per Document\n")
-    for r in resultats:
-        md.append(f"### 📄 Document: `{r['nom']}`\n")
-        md.append(f"- **Camps que coincideixen:** {len(r['encerts'])}")
-        md.append(f"- **Diferències trobades:** {len(r['errors'])}\n")
+    # Detailed Audit
+    md.append("## 🔍 Detailed Audit per Document\n")
+    for r in results:
+        md.append(f"### 📄 Document: `{r['name']}`\n")
+        md.append(f"- **Matching Fields:** {len(r['matches'])}")
+        md.append(f"- **Discrepancies:** {len(r['mismatches'])}\n")
 
-        if r["errors"]:
-            md.append("#### ⚠️ Incidències a revisar:\n")
-            md.append("> **Nota d'interpretació:** El camp del JSON existeix però el seu valor no s'ha trobat imprès textualment ni en format numèric estàndard dins del PDF.\n")
-            for ruta, valor in r["errors"]:
-                md.append(f"* **Camp / Ruta JSON:** `{ruta}`")
-                md.append(f"  * **Valor esperat (JSON):** `{valor}`")
-                md.append("  * *Comentari:* Comprovar si al PDF aquest valor apareix en un altre format, si està truncat o si falten pàgines.\n")
+        if r["mismatches"]:
+            md.append("#### ⚠️ Issues to Review:\n")
+            md.append("> **Note:** The JSON field exists, but its value was not found in exact text or standard numeric format within the PDF.\n")
+            for path, val in r["mismatches"]:
+                md.append(f"* **JSON Path:** `{path}`")
+                md.append(f"  * **Expected Value (JSON):** `{val}`")
+                md.append("  * *Action:* Check if this value appears in a different format, is truncated, or if pages are missing from the PDF.\n")
         else:
-            md.append("🎉 **Tots els camps extrets al JSON s'han validat correctament contra el PDF.**\n")
+            md.append("🎉 **All extracted JSON fields have been successfully validated against the PDF.**\n")
 
         md.append("---\n")
 
-    # Guardar fitxer
-    with open(ruta_report, "w", encoding="utf-8") as f:
+    # Write file
+    with open(report_path, "w", encoding="utf-8") as f:
         f.writelines("\n".join(md))
 
-    return ruta_report
+    return report_path
 
 
-def auditar_carpeta_recursiva(dir_arrel, dir_reports):
-    """Cerca tots els PDFs i JSONs, els compara i genera un report."""
-    mapa_pdfs = {}
-    mapa_jsons = {}
+def audit_directory_recursively(root_dir, reports_dir):
+    """Searches for PDF/JSON pairs, compares them, generates a report, and returns structured results."""
+    pdf_map = {}
+    json_map = {}
 
-    path_arrel = Path(dir_arrel)
-    if not path_arrel.exists():
-        print(f"❌ La carpeta '{dir_arrel}' no existeix.")
-        return
+    root_path = Path(root_dir)
+    if not root_path.exists():
+        print(f"❌ Directory '{root_dir}' does not exist.")
+        return [], None
 
-    for fitxer in path_arrel.rglob("*"):
-        if fitxer.is_file():
-            if fitxer.suffix.lower() == ".pdf":
-                mapa_pdfs[fitxer.stem] = fitxer
-            elif fitxer.suffix.lower() == ".json":
-                mapa_jsons[fitxer.stem] = fitxer
+    for file in root_path.rglob("*"):
+        if file.is_file():
+            if file.suffix.lower() == ".pdf":
+                pdf_map[file.stem] = file
+            elif file.suffix.lower() == ".json":
+                json_map[file.stem] = file
 
-    noms_comuns = set(mapa_pdfs.keys()).intersection(set(mapa_jsons.keys()))
+    common_names = set(pdf_map.keys()).intersection(set(json_map.keys()))
 
-    if not noms_comuns:
-        print(f"⚠️ No s'han trobat parelles de fitxers PDF i JSON amb el mateix nom a '{dir_arrel}'.")
-        return
+    if not common_names:
+        print(f"⚠️ No matching PDF and JSON file pairs found in '{root_dir}'.")
+        return [], None
 
-    print(f"\n🔍 Executant auditoria de {len(noms_comuns)} parelles de fitxers...\n" + "=" * 60)
+    print(f"\n🔍 Running audit for {len(common_names)} file pairs...\n" + "=" * 60)
 
-    resultats = []
+    results = []
 
-    for nom in sorted(noms_comuns):
-        ruta_pdf = mapa_pdfs[nom]
-        ruta_json = mapa_jsons[nom]
+    for name in sorted(common_names):
+        pdf_path = pdf_map[name]
+        json_path = json_map[name]
 
-        text_pdf = extreure_text_pdf(ruta_pdf)
+        pdf_text = extract_pdf_text(pdf_path)
 
         try:
-            with open(ruta_json, "r", encoding="utf-8") as f:
-                dades_json = json.load(f)
+            with open(json_path, "r", encoding="utf-8") as f:
+                json_data = json.load(f)
         except Exception as e:
-            print(f"❌ Error llegint el JSON {ruta_json.name}: {e}")
+            print(f"❌ Error reading JSON {json_path.name}: {e}")
             continue
 
-        encerts, errors = comparar_json_amb_pdf(dades_json, text_pdf)
+        matches, mismatches = compare_json_with_pdf(json_data, pdf_text)
 
-        resultats.append({
-            "nom": nom,
-            "encerts": encerts,
-            "errors": errors
+        results.append({
+            "name": name,
+            "matches": matches,
+            "mismatches": mismatches
         })
 
-        print(f"📄 Processat: {nom} | ✅ {len(encerts)} ok | ❌ {len(errors)} errors")
+        print(f"📄 Processed: {name} | ✅ {len(matches)} ok | ❌ {len(mismatches)} errors")
 
-    # Generar el report
-    ruta_report = generar_report_markdown(resultats, dir_reports)
+    # Generate Markdown Report
+    report_path = generate_markdown_report(results, reports_dir)
 
     print("\n" + "=" * 60)
-    print(f"📊 Auditoria finalitzada!")
-    print(f"📁 Informe generat correctament a: {ruta_report}")
+    print("📊 Audit completed!")
+    print(f"📁 Report successfully generated at: {report_path}")
+ 
+    return results, report_path
 
 
 if __name__ == "__main__":
-    dir_data = sys.argv[1] if len(sys.argv) > 1 else "./data"
-    dir_reports = "./reports"
+    data_dir = sys.argv[1] if len(sys.argv) > 1 else "./data"
+    reports_dir = "./reports"
 
-    # Crear carpetes si no existeixen
-    os.makedirs(dir_data, exist_ok=True)
-    os.makedirs(dir_reports, exist_ok=True)
+    os.makedirs(data_dir, exist_ok=True)
+    os.makedirs(reports_dir, exist_ok=True)
 
-    auditar_carpeta_recursiva(dir_data, dir_reports)
+    audit_directory_recursively(data_dir, reports_dir)
