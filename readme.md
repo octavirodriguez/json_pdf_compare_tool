@@ -6,10 +6,11 @@ An automated auditing tool to ingest, validate, and compare IRS Model 3 document
 
 ## 📋 Features
 
-* **Automated File Pairing:** Automatically matches `.pdf` and `.json` files recursively across directories.
-* **Smart Verification:** Checks JSON key-value pairs against PDF text content, supporting European numeric formats (`1.166,34`), standard floats (`1.166.34`), and ISO dates (`YYYY-MM-DD` to `DD/MM/YYYY`).
+* **Batch File Pairing:** Automatically matches `.pdf` and `.json` files recursively across directories by base filename, ignoring each file's trailing 13-character system-generated suffix (e.g. `..._W2IWIZ2W_DBS.pdf` / `..._W2IWIZ9C_4US.json`) — so you can drop many document pairs into `./data` at once without renaming anything. If two files would resolve to the same base name, the tool warns instead of silently dropping one.
+* **Smart Verification:** Checks JSON key-value pairs against PDF text content, supporting European numeric formats (`1.166,34`), standard floats (`1.166.34`), and ISO dates (`YYYY-MM-DD` to `DD/MM/YYYY`). Matching is case-insensitive and tolerant of line wraps/whitespace differences between the PDF and JSON, and a word-order-independent fallback catches fields a PDF splits differently than the JSON (e.g. a full name stored as one JSON field but printed as separate "Cognome" / "Nome" lines).
+* **Three-Tier Audit Outcome:** Each JSON field is reported as a **Match** (confidently verified), a **Discrepancy** (no trace of the value found anywhere in the PDF — the strongest signal of a real data problem), or **Unverifiable** (a weak/coincidental textual trace was found, but not enough to confirm — worth a quick manual look rather than treating it as pass or fail).
 * **macOS Automation (Folder Actions):** Supports real-time folder watching to automatically normalize and standardize incoming IRS files.
-* **Markdown Audit Reports:** Automatically generates detailed execution reports with executive summaries and field-level discrepancy breakdowns.
+* **Markdown Audit Reports:** Automatically generates detailed execution reports with executive summaries and field-level match/unverifiable/discrepancy breakdowns.
 * **UI Ready:** Fully modular backend ready for `customtkinter` integration.
 
 ---
@@ -41,7 +42,10 @@ pip install pypdf customtkinter
 
 ## 💻 CLI Usage
 
-1. Place your matching PDF and JSON file pairs into the `./data` folder (subdirectories are supported).
+1. Place your PDF and JSON file pairs into the `./data` folder (subdirectories are supported). You can drop in a whole batch at once — files are paired by base filename once each one's trailing 13-character suffix is stripped, so `.pdf` and `.json` files don't need identical names.
+
+   > ⚠️ `./data` is git-ignored on purpose, since these are typically real fiscal/personal documents. Never remove `data/` from `.gitignore` or force-add files from it.
+
 2. Run the audit script:
    ````Bash
    python auditor.py
@@ -50,7 +54,7 @@ pip install pypdf customtkinter
    Optional: You can also specify a custom input directory:
    python auditor.py ./path/to/custom_folder
 
-3. View the generated Markdown report inside the `./reports` directory (`audit_report_YYYYMMDD_HHMMSS.md`).
+3. View the generated Markdown report inside the `./reports` directory (`audit_report_YYYYMMDD_HHMMSS.md`). Each document is scored ✅ OK (all fields matched), 🟡 NEEDS REVIEW (no discrepancies, but some fields were unverifiable), or ❌ ISSUES FOUND (at least one discrepancy).
 <!--
 ---
 
@@ -74,8 +78,8 @@ To automatically ingest, extract metadata (Taxpayer Name, Year, Model), and rena
 ## 📁 Repository Structure
 ```text
 json_pdf_compare_tool/
-├── data/              # Input directory for PDF/JSON pairs
-├── reports/           # Generated Markdown audit reports
+├── data/              # Input directory for PDF/JSON pairs (git-ignored — may hold real personal data)
+├── reports/           # Generated Markdown audit reports (git-ignored)
 ├── venv/              # Python virtual environment (git-ignored)
 ├── auditor.py         # Core auditing engine
 ├── README.md          # Project documentation
