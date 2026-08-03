@@ -12,8 +12,17 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Generated Audit Reports
+# Input documents (real PDF/JSON pairs — often contain personal/sensitive data)
+# and generated Audit Reports (also matches "<folder>_reports" from the GUI app)
+data/
 reports/
+*_reports/
+
+# py2app build output (see BUILD.md) — rebuild locally, don't commit binaries
+build/
+dist/
+*.egg-info/
+*.zip
 
 # IDE & Editor settings
 .vscode/
