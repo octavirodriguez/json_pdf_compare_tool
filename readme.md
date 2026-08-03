@@ -1,6 +1,6 @@
 # JSON-PDF Compare Tool
 
-An automated auditing tool to ingest, validate, and compare IRS Model 3 document pairs (PDF vs. JSON) for fiscal compliance.
+An automated auditing tool to ingest, validate, and compare different administration document pairs (PDF vs. JSON) for fiscal compliance.
 
 ---
 
@@ -11,7 +11,7 @@ An automated auditing tool to ingest, validate, and compare IRS Model 3 document
 * **Three-Tier Audit Outcome:** Each JSON field is reported as a **Match** (confidently verified), a **Discrepancy** (no trace of the value found anywhere in the PDF — the strongest signal of a real data problem), or **Unverifiable** (a weak/coincidental textual trace was found, but not enough to confirm — worth a quick manual look rather than treating it as pass or fail).
 * **macOS Automation (Folder Actions):** Supports real-time folder watching to automatically normalize and standardize incoming IRS files.
 * **Markdown Audit Reports:** Automatically generates detailed execution reports with executive summaries and field-level match/unverifiable/discrepancy breakdowns.
-* **UI Ready:** Fully modular backend ready for `customtkinter` integration.
+* **Desktop App:** A `customtkinter` GUI (`auditor_gui.py`) drives the same audit engine — pick a folder, click *Run Audit*, and view results — and can be packaged into a standalone macOS app that runs without Python installed (see [BUILD.md](BUILD.md)).
 
 ---
 
@@ -35,8 +35,24 @@ source venv/bin/activate
 ````
 3. **Install dependencies:**
 ````Bash
-pip install pypdf customtkinter
+pip install -r requirements.txt
 ````
+
+---
+
+## 🖥️ Desktop App
+
+Prefer a GUI over the command line? Run:
+````Bash
+python auditor_gui.py
+````
+Pick a data folder, click **Run Audit**, then use **Open Report** or **Reveal
+Reports Folder** to see the results. It uses the exact same audit engine as
+the CLI (`auditor.py`) — nothing about the matching or report logic differs.
+
+**Want a standalone app you can hand to someone without Python installed?**
+See [BUILD.md](BUILD.md) for packaging this into a double-clickable
+`IRS Audit Tool.app` with `py2app`.
 
 ---
 
@@ -80,8 +96,13 @@ To automatically ingest, extract metadata (Taxpayer Name, Year, Model), and rena
 json_pdf_compare_tool/
 ├── data/              # Input directory for PDF/JSON pairs (git-ignored — may hold real personal data)
 ├── reports/           # Generated Markdown audit reports (git-ignored)
+├── build/, dist/      # py2app build output (git-ignored — see BUILD.md)
 ├── venv/              # Python virtual environment (git-ignored)
 ├── auditor.py         # Core auditing engine
+├── auditor_gui.py     # customtkinter desktop GUI, built on auditor.py
+├── setup.py           # py2app packaging config
+├── requirements.txt  # Runtime dependencies
+├── BUILD.md           # How to build the standalone macOS app
 ├── README.md          # Project documentation
 └── .gitignore         # Git ignore rules
 ```

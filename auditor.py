@@ -24,7 +24,8 @@ _WHITESPACE_RE = re.compile(r"\s+")
 
 
 def _build_phrase_regex(value_str):
-    """Builds a case-insensitive regex that matches `value_str` as whole word(s),
+    """
+    Builds a case-insensitive regex that matches `value_str` as whole word(s),
     tolerating any amount of whitespace (including line breaks) between the
     words it contains. PDF text extraction frequently re-flows or wraps text
     differently than the source JSON, so a literal substring check is too
@@ -41,13 +42,16 @@ def _build_phrase_regex(value_str):
 
 
 def _value_matches_text(pdf_text, value_str):
-    """Whole-word(s), whitespace-tolerant, case-insensitive match of value_str in pdf_text."""
+    """
+    Whole-word(s), whitespace-tolerant, case-insensitive match of value_str in pdf_text.
+    """
     pattern = _build_phrase_regex(value_str)
     return bool(pattern and pattern.search(pdf_text))
 
 
 def _all_words_present(pdf_text, value_str, min_word_length=3):
-    """Fallback for multi-word values whose exact phrase isn't found as-is: true if
+    """
+    Fallback for multi-word values whose exact phrase isn't found as-is: true if
     every significant word appears *somewhere* in the text on its own, regardless
     of order or adjacency. This catches cases like a PDF that prints a person's
     name as separate 'Cognome' / 'Nome' fields (in surname-first order) while the
@@ -63,7 +67,8 @@ def _all_words_present(pdf_text, value_str, min_word_length=3):
 
 
 def _loose_trace_present(pdf_text_lower, variants):
-    """Weak, unanchored, case-insensitive substring check (no word boundaries) —
+    """
+    Weak, unanchored, case-insensitive substring check (no word boundaries) —
     the old (pre-fix) matching behavior. Used only as a fallback signal *after*
     the strict checks above have already failed.
 
@@ -80,7 +85,9 @@ def _loose_trace_present(pdf_text_lower, variants):
 
 
 def compare_json_with_pdf(json_data, pdf_text):
-    """Recursively walks through the JSON and verifies if values exist within the PDF text."""
+    """
+    Recursively walks through the JSON and verifies if values exist within the PDF text.
+    """
     mismatches = []
     matches = []
     unverifiable = []
@@ -137,7 +144,9 @@ def compare_json_with_pdf(json_data, pdf_text):
 
 
 def generate_markdown_report(results, reports_dir):
-    """Generates a clean and structured Markdown audit report."""
+    """
+    Generates a clean and structured Markdown audit report.
+    """
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     report_filename = f"audit_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
     report_path = os.path.join(reports_dir, report_filename)
@@ -157,7 +166,7 @@ def generate_markdown_report(results, reports_dir):
         return "✅ OK"
 
     md = []
-    md.append("# 📊 IRS Audit Report (Model 3)\n")
+    md.append("# 📊 JSON-PDF Compare Tool — Audit Report\n")
     md.append(f"**Execution Date:** `{now}`  \n")
     md.append(f"**Report Path:** `{report_path}`\n")
     md.append("---\n")
@@ -232,14 +241,15 @@ def generate_markdown_report(results, reports_dir):
 # system-generated suffix tacked on before the extension, e.g.:
 #   ..._W2IWIZ2W_DBS.pdf
 #   ..._W2IWIZ9C_4US.json
-# Stripping this fixed-length suffix from both stems is what lets us pair
+# Stripping this fixed-length suffix (13 characters) from both stems is what lets us pair
 # files by base name instead of requiring identical filenames, which in turn
 # is what allows dropping whole batches of pairs into the data folder at once.
 TRAILING_SUFFIX_LENGTH = 13
 
 
 def derive_base_key(stem):
-    """Strips the trailing system-generated suffix from a filename stem so PDF/JSON pairs can be matched.
+    """
+    Strips the trailing system-generated suffix from a filename stem so PDF/JSON pairs can be matched.
 
     Falls back to the full stem (with a warning) if the name is too short to safely strip a suffix from.
     """
@@ -253,7 +263,9 @@ def derive_base_key(stem):
 
 
 def audit_directory_recursively(root_dir, reports_dir):
-    """Searches for PDF/JSON pairs, compares them, generates a report, and returns structured results."""
+    """
+    Searches for PDF/JSON pairs, compares them, generates a report, and returns structured results.
+    """
     pdf_map = {}
     json_map = {}
 
