@@ -2,6 +2,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 import pypdf
@@ -24,8 +25,7 @@ _WHITESPACE_RE = re.compile(r"\s+")
 
 
 def _build_phrase_regex(value_str):
-    """
-    Builds a case-insensitive regex that matches `value_str` as whole word(s),
+    """Builds a case-insensitive regex that matches `value_str` as whole word(s),
     tolerating any amount of whitespace (including line breaks) between the
     words it contains. PDF text extraction frequently re-flows or wraps text
     differently than the source JSON, so a literal substring check is too
@@ -42,16 +42,54 @@ def _build_phrase_regex(value_str):
 
 
 def _value_matches_text(pdf_text, value_str):
-    """
-    Whole-word(s), whitespace-tolerant, case-insensitive match of value_str in pdf_text.
-    """
+    """Whole-word(s), whitespace-tolerant, case-insensitive match of value_str in pdf_text."""
     pattern = _build_phrase_regex(value_str)
     return bool(pattern and pattern.search(pdf_text))
 
 
-def _all_words_present(pdf_text, value_str, min_word_length=3):
+def _strip_diacritics(text):
+    """Removes accents/diacritical marks (á→a, í→i, ñ→n, ç→c, and so on) via Unicode
+    decomposition. A person's name or a place name is often transcribed with and
+    without its accents interchangeably across different systems -- "Maria" in the
+    JSON and "María" in the PDF, or "Peniscola" vs "Peníscola" -- and a plain user
+    reviewing that wouldn't consider it a real discrepancy, just a different way of
+    writing the same name. NFKD decomposition splits an accented character into its
+    base letter plus a separate combining mark; dropping the combining marks leaves
+    just the base letters.
     """
-    Fallback for multi-word values whose exact phrase isn't found as-is: true if
+    decomposed = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
+
+
+def _accent_insensitive_hit(pdf_text_stripped, variants):
+    """Like `_confident_variant_hit`, but with diacritics stripped from both the
+    candidate variant and the PDF text before comparing, so accent-only differences
+    between the JSON and the PDF -- in either direction -- still count as a
+    confident Match rather than a false Unverifiable/Discrepancy.
+    """
+    return any(
+        len(v) >= MIN_CONFIDENT_MATCH_LENGTH and _value_matches_text(pdf_text_stripped, _strip_diacritics(v))
+        for v in variants
+    )
+
+
+def _confident_variant_hit(pdf_text, variants):
+    """Like `_value_matches_text`, but only counts a hit as confident if the specific
+    variant that matched is itself long enough to be trustworthy (see
+    MIN_CONFIDENT_MATCH_LENGTH). This matters because a variant can be short even when
+    the original JSON value isn't -- e.g. "0.00" is 4 characters, but its bare-integer
+    variant "0" is 1, and a lone "0" is nearly guaranteed to appear somewhere in a real
+    document by coincidence. Checking value_str's length alone would miss that; this
+    checks every candidate variant individually instead.
+    """
+    return any(
+        len(v) >= MIN_CONFIDENT_MATCH_LENGTH and _value_matches_text(pdf_text, v)
+        for v in variants
+    )
+
+
+def _all_words_present(pdf_text, value_str, min_word_length=3):
+    """Fallback for multi-word values whose exact phrase isn't found as-is: true if
     every significant word appears *somewhere* in the text on its own, regardless
     of order or adjacency. This catches cases like a PDF that prints a person's
     name as separate 'Cognome' / 'Nome' fields (in surname-first order) while the
@@ -67,8 +105,7 @@ def _all_words_present(pdf_text, value_str, min_word_length=3):
 
 
 def _loose_trace_present(pdf_text_lower, variants):
-    """
-    Weak, unanchored, case-insensitive substring check (no word boundaries) —
+    """Weak, unanchored, case-insensitive substring check (no word boundaries) —
     the old (pre-fix) matching behavior. Used only as a fallback signal *after*
     the strict checks above have already failed.
 
@@ -84,14 +121,26 @@ def _loose_trace_present(pdf_text_lower, variants):
     return any(var.lower() in pdf_text_lower for var in variants)
 
 
+# Very short values (single letters/digits, 2-character codes) show up constantly
+# in structured data as internal classification codes -- e.g. a "clave" of "A" or
+# "F1", a "tipo" of "3". A bare presence-in-text hit on something this short is
+# weak evidence: in any document of realistic length, a 1-2 character token is
+# likely to turn up somewhere by pure coincidence, unrelated to the field being
+# checked (a lone "A" matches constantly just because "a" is a common Spanish
+# word; a lone "3" matches any stray digit). So a hit on a value shorter than
+# this is never treated as a confident Match -- at best it's Unverifiable.
+MIN_CONFIDENT_MATCH_LENGTH = 3
+
+
 def compare_json_with_pdf(json_data, pdf_text):
-    """
-    Recursively walks through the JSON and verifies if values exist within the PDF text.
-    """
+    """Recursively walks through the JSON and verifies if values exist within the PDF text."""
     mismatches = []
     matches = []
     unverifiable = []
     pdf_text_lower = pdf_text.lower()
+    # Computed once per document rather than once per field, since stripping
+    # diacritics from the full PDF text is the same work every time either way.
+    pdf_text_stripped = _strip_diacritics(pdf_text)
 
     def generate_value_variants(value_str):
         variants = [value_str]
@@ -103,6 +152,28 @@ def compare_json_with_pdf(json_data, pdf_text):
             variants.append(f"{val_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
             # European format with dot for thousands and dot for decimals (1.166.34)
             variants.append(f"{val_float:,.2f}".replace(",", "."))
+            # Not every decimal value is currency rounded to 2 places -- e.g. an
+            # investment fund's number of shares can carry 6 decimal digits
+            # ("0.685843"). Forcing 2-decimal rounding there produces "0.69",
+            # which never appears in the PDF because the PDF prints the value's
+            # full original precision. So also try a variant that preserves
+            # however many decimal places the source value actually has.
+            if "." in value_str:
+                native_places = len(value_str.split(".", 1)[1])
+                if native_places != 2:
+                    variants.append(
+                        f"{val_float:,.{native_places}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                    )
+                    variants.append(f"{val_float:,.{native_places}f}".replace(",", "."))
+            # Whole numbers are frequently printed without a redundant ",00"/".00"
+            # suffix -- e.g. a 100% ownership share is printed as "100%", never
+            # "100,00%". Real-world testing against Spanish tax documents showed
+            # this causes false discrepancies for whole-number percentages, so
+            # whole values also get a bare-integer variant, in both European
+            # thousands-separator style and plain.
+            if val_float == int(val_float):
+                variants.append(f"{int(val_float):,}".replace(",", "."))
+                variants.append(str(int(val_float)))
         except ValueError:
             pass
 
@@ -129,10 +200,26 @@ def compare_json_with_pdf(json_data, pdf_text):
             if value_str.lower() in ["true", "false"]:
                 return
 
+            if len(value_str) < MIN_CONFIDENT_MATCH_LENGTH:
+                # Too short for a text search to say anything trustworthy either
+                # way -- see MIN_CONFIDENT_MATCH_LENGTH above. Real-world testing
+                # confirmed both directions of this: a short code can coincidentally
+                # match unrelated text (false Match), and short internal codes are
+                # also frequently never printed verbatim at all -- the PDF prints a
+                # human-readable label instead (e.g. clave "F1" is printed as
+                # "Cursos, conferencias, obras lit., art. o científicas") -- which
+                # would otherwise look like a confident Discrepancy for something
+                # that was never wrong to begin with. So values this short always
+                # land in Unverifiable, never a confident Match or Discrepancy.
+                unverifiable.append((path, value_str))
+                return
+
             variants = generate_value_variants(value_str)
-            if any(_value_matches_text(pdf_text, var) for var in variants):
-                matches.append((path, value_str))
-            elif _all_words_present(pdf_text, value_str):
+            if (
+                _confident_variant_hit(pdf_text, variants)
+                or _all_words_present(pdf_text, value_str)
+                or _accent_insensitive_hit(pdf_text_stripped, variants)
+            ):
                 matches.append((path, value_str))
             elif _loose_trace_present(pdf_text_lower, variants):
                 unverifiable.append((path, value_str))
@@ -143,10 +230,19 @@ def compare_json_with_pdf(json_data, pdf_text):
     return matches, mismatches, unverifiable
 
 
+# Discrepancies at or below this length get an extra hint in the generated report.
+# Real-world testing turned up several 3-4 character classification/regime codes
+# (e.g. "C13", "0521") that never appear literally in the PDF at all -- the PDF
+# prints a human-readable label instead. But values of that same length are also
+# genuinely, correctly confirmed elsewhere in the very same documents (cadastral
+# parcel numbers, small withheld amounts), so there's no length threshold that can
+# safely auto-reclassify these without also hiding real errors in those fields.
+# Rather than guess, the report just flags the possibility so a human can check.
+SHORT_CODE_HINT_LENGTH = 5
+
+
 def generate_markdown_report(results, reports_dir):
-    """
-    Generates a clean and structured Markdown audit report.
-    """
+    """Generates a clean and structured Markdown audit report."""
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     report_filename = f"audit_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
     report_path = os.path.join(reports_dir, report_filename)
@@ -209,7 +305,17 @@ def generate_markdown_report(results, reports_dir):
             for path, val in r["mismatches"]:
                 md.append(f"* **JSON Path:** `{path}`")
                 md.append(f"  * **Expected Value (JSON):** `{val}`")
-                md.append("  * *Action:* Check if this value appears in a different format, is truncated, or if pages are missing from the PDF.\n")
+                action = "Check if this value appears in a different format, is truncated, or if pages are missing from the PDF."
+                if len(val) <= SHORT_CODE_HINT_LENGTH:
+                    action += (
+                        " Short values like this are sometimes internal classification or regime codes "
+                        "that the source PDF prints as a descriptive label instead of the literal code "
+                        "(e.g. a code of \"F1\" printed as \"Cursos, conferencias, obras lit., art. o "
+                        "científicas\") -- if that's the case here, this may not be an error at all, just "
+                        "something the tool can't confirm by text search. Worth a quick look before treating "
+                        "it as a real discrepancy."
+                    )
+                md.append(f"  * *Action:* {action}\n")
 
         if r["unverifiable"]:
             md.append("#### 🟡 Unverifiable Fields:\n")
@@ -241,15 +347,14 @@ def generate_markdown_report(results, reports_dir):
 # system-generated suffix tacked on before the extension, e.g.:
 #   ..._W2IWIZ2W_DBS.pdf
 #   ..._W2IWIZ9C_4US.json
-# Stripping this fixed-length suffix (13 characters) from both stems is what lets us pair
+# Stripping this fixed-length suffix from both stems is what lets us pair
 # files by base name instead of requiring identical filenames, which in turn
 # is what allows dropping whole batches of pairs into the data folder at once.
 TRAILING_SUFFIX_LENGTH = 13
 
 
 def derive_base_key(stem):
-    """
-    Strips the trailing system-generated suffix from a filename stem so PDF/JSON pairs can be matched.
+    """Strips the trailing system-generated suffix from a filename stem so PDF/JSON pairs can be matched.
 
     Falls back to the full stem (with a warning) if the name is too short to safely strip a suffix from.
     """
@@ -263,9 +368,7 @@ def derive_base_key(stem):
 
 
 def audit_directory_recursively(root_dir, reports_dir):
-    """
-    Searches for PDF/JSON pairs, compares them, generates a report, and returns structured results.
-    """
+    """Searches for PDF/JSON pairs, compares them, generates a report, and returns structured results."""
     pdf_map = {}
     json_map = {}
 
