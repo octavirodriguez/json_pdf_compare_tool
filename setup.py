@@ -19,7 +19,7 @@ OPTIONS = {
     "plist": {
         "CFBundleName": "JSON-PDF Compare Tool",
         "CFBundleDisplayName": "JSON-PDF Compare Tool",
-        "CFBundleIdentifier": "com.octavirodriguez.irsaudittool",
+        "CFBundleIdentifier": "com.octavirodriguez.jsonpdfcomparetool",
         "CFBundleVersion": "1.0.0",
         "CFBundleShortVersionString": "1.0.0",
         "NSHumanReadableCopyright": "MIT License",

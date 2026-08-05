@@ -9,7 +9,7 @@ An automated auditing tool to ingest, validate, and compare different administra
 * **Batch File Pairing:** Automatically matches `.pdf` and `.json` files recursively across directories by base filename, ignoring each file's trailing 13-character system-generated suffix (e.g. `..._W2IWIZ2W_DBS.pdf` / `..._W2IWIZ9C_4US.json`) — so you can drop many document pairs into `./data` at once without renaming anything. If two files would resolve to the same base name, the tool warns instead of silently dropping one.
 * **Smart Verification:** Checks JSON key-value pairs against PDF text content, supporting European numeric formats (`1.166,34`), standard floats (`1.166.34`), and ISO dates (`YYYY-MM-DD` to `DD/MM/YYYY`). Matching is case-insensitive and tolerant of line wraps/whitespace differences between the PDF and JSON, and a word-order-independent fallback catches fields a PDF splits differently than the JSON (e.g. a full name stored as one JSON field but printed as separate "Cognome" / "Nome" lines).
 * **Three-Tier Audit Outcome:** Each JSON field is reported as a **Match** (confidently verified), a **Discrepancy** (no trace of the value found anywhere in the PDF — the strongest signal of a real data problem), or **Unverifiable** (a weak/coincidental textual trace was found, but not enough to confirm — worth a quick manual look rather than treating it as pass or fail).
-* **macOS Automation (Folder Actions):** Supports real-time folder watching to automatically normalize and standardize incoming IRS files.
+* **macOS Automation (Folder Actions):** Supports real-time folder watching to automatically normalize and standardize incoming files.
 * **Markdown Audit Reports:** Automatically generates detailed execution reports with executive summaries and field-level match/unverifiable/discrepancy breakdowns.
 * **Desktop App:** A `customtkinter` GUI (`auditor_gui.py`) drives the same audit engine — pick a folder, click *Run Audit*, and view results — and can be packaged into a standalone macOS app that runs without Python installed (see [buildApp.md](buildApp.md)).
 
@@ -52,7 +52,7 @@ the CLI (`auditor.py`) — nothing about the matching or report logic differs.
 
 **Want a standalone app you can hand to someone without Python installed?**
 See [BUILD.md](BUILD.md) for packaging this into a double-clickable
-`IRS Audit Tool.app` with `py2app`.
+`JSON-PDF Compare Tool.app` with `py2app`.
 
 ---
 
