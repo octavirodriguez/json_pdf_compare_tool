@@ -2,7 +2,7 @@
 
 `auditor_gui.py` is a small desktop wrapper around `auditor.py`'s audit
 engine, built with `customtkinter`. This guide packages it into a
-standalone `IRS Audit Tool.app` using [py2app](https://py2app.readthedocs.io/),
+standalone `JSON-PDF-Compare-Tool.app` using [py2app](https://py2app.readthedocs.io/),
 so anyone can run it on a Mac **without installing Python**.
 
 > ⚠️ This build must be run **on macOS** — py2app bundles a real macOS
@@ -34,7 +34,7 @@ rm -rf build dist
 python setup.py py2app
 ```
 
-This creates the app inside `dist/` — look for `IRS Audit Tool.app` (py2app
+This creates the app inside `dist/` — look for `JSON-PDF Compare Tool.app` (py2app
 may name it after the script instead, e.g. `auditor_gui.app`, depending on
 version; either way it's the only `.app` under `dist/`).
 
@@ -58,10 +58,10 @@ Zip it with `ditto` rather than Finder's "Compress" or plain `zip`, so the
 app bundle's structure survives intact:
 
 ```bash
-ditto -c -k --sequesterRsrc --keepParent "dist/IRS Audit Tool.app" "IRS-Audit-Tool.zip"
+ditto -c -k --sequesterRsrc --keepParent "dist/JSON-PDF-Compare-Tool.app" "JSON-PDF-Compare-Tool.zip"
 ```
 
-Send `IRS-Audit-Tool.zip` to whoever needs it.
+Send `JSON-PDF-Compare-Tool.zip` to whoever needs it.
 
 ## 6. First-run instructions for recipients
 
@@ -70,7 +70,7 @@ account), so macOS Gatekeeper will initially block it as being from an
 "unidentified developer." This only needs to be done once per Mac:
 
 1. Unzip the file.
-2. **Right-click** (or Control-click) `IRS Audit Tool.app` → **Open**.
+2. **Right-click** (or Control-click) `JSON-PDF-Compare-Tool.app` → **Open**.
 3. Click **Open** in the confirmation dialog.
 
 If step 2 doesn't offer an "Open" option (recent macOS versions sometimes
