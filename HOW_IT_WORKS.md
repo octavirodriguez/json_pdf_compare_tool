@@ -1,6 +1,6 @@
 # How the JSON-PDF Compare Tool Works
 
-A plain-language walkthrough of every file and function in the codebase — what it does, what goes in, what comes back out, and who calls it. Written for someone who isn't a Python expert; a short glossary is included below for the handful of terms used repeatedly.
+A plain-language walkthrough of every file and function in the codebase — what it does, what goes in, what comes back out, and who calls it.
 
 ---
 
