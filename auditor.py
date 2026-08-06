@@ -18,7 +18,7 @@ def extract_pdf_text(pdf_path):
         return text
     except Exception as e:
         print(f"❌ Error reading PDF {pdf_path}: {e}")
-        return ""
+        return None
 
 
 _WHITESPACE_RE = re.compile(r"\s+")
@@ -291,6 +291,12 @@ def generate_markdown_report(results, reports_dir):
     md.append("## 🔍 Detailed Audit per Document\n")
     for r in results:
         md.append(f"### 📄 Document: `{r['name']}`\n")
+        if r.get("pdf_read_error"):
+            md.append(
+                "> ⚠️ **PDF could not be read.** The file may be corrupted, password-protected, or "
+                "not a valid PDF. All fields below are shown as Discrepancies only because the PDF "
+                "text was unavailable — they do not reflect actual data problems.\n"
+            )
         md.append(f"- **Matching Fields:** {len(r['matches'])}")
         md.append(f"- **Unverifiable Fields:** {len(r['unverifiable'])}")
         md.append(f"- **Discrepancies:** {len(r['mismatches'])}\n")
@@ -412,6 +418,7 @@ def audit_directory_recursively(root_dir, reports_dir):
         json_path = json_map[name]
 
         pdf_text = extract_pdf_text(pdf_path)
+        pdf_read_error = pdf_text is None
 
         try:
             with open(json_path, "r", encoding="utf-8") as f:
@@ -420,10 +427,11 @@ def audit_directory_recursively(root_dir, reports_dir):
             print(f"❌ Error reading JSON {json_path.name}: {e}")
             continue
 
-        matches, mismatches, unverifiable = compare_json_with_pdf(json_data, pdf_text)
+        matches, mismatches, unverifiable = compare_json_with_pdf(json_data, pdf_text or "")
 
         results.append({
             "name": name,
+            "pdf_read_error": pdf_read_error,
             "matches": matches,
             "mismatches": mismatches,
             "unverifiable": unverifiable
