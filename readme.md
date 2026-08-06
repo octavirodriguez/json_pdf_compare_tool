@@ -119,7 +119,7 @@ The suite covers all matching logic, variant generation, the three-tier classifi
 
 ---
 
-## �🤝 Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please feel free to open an issue or submit a Pull Request.
 
