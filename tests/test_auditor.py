@@ -265,12 +265,12 @@ class TestExtractPdfText:
         bad_pdf = tmp_path / "bad.pdf"
         bad_pdf.write_bytes(b"not a real pdf")
         result = extract_pdf_text(str(bad_pdf))
-        assert result == ""
+        assert result is None
         assert "Error reading PDF" in capsys.readouterr().out
 
-    def test_missing_file_returns_empty_string(self, capsys):
+    def test_missing_file_returns_none(self, capsys):
         result = extract_pdf_text("/nonexistent/path/file.pdf")
-        assert result == ""
+        assert result is None
         assert "Error reading PDF" in capsys.readouterr().out
 
 

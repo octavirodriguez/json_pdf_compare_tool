@@ -98,6 +98,7 @@ json_pdf_compare_tool/
 ├── reports/           # Generated Markdown audit reports (git-ignored)
 ├── build/, dist/      # py2app build output (git-ignored — see BUILD.md)
 ├── venv/              # Python virtual environment (git-ignored)
+├── tests/             # pytest unit tests
 ├── auditor.py         # Core auditing engine
 ├── auditor_gui.py     # customtkinter desktop GUI, built on auditor.py
 ├── setup.py           # py2app packaging config
@@ -108,7 +109,17 @@ json_pdf_compare_tool/
 ```
 ---
 
-## 🤝 Contributing
+## 🔬 Running the Tests
+
+```bash
+pytest tests/
+```
+
+The suite covers all matching logic, variant generation, the three-tier classification, PDF read error handling, and file pairing edge cases (45 tests).
+
+---
+
+## �🤝 Contributing
 
 Contributions are welcome! Please feel free to open an issue or submit a Pull Request.
 
