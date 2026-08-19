@@ -23,6 +23,12 @@ def extract_pdf_text(pdf_path):
 
 _WHITESPACE_RE = re.compile(r"\s+")
 
+_SPANISH_MONTHS = {
+    1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo", 6: "junio",
+    7: "julio", 8: "agosto", 9: "septiembre", 10: "octubre", 11: "noviembre",
+    12: "diciembre",
+}
+
 
 def _build_phrase_regex(value_str):
     """Builds a case-insensitive regex that matches `value_str` as whole word(s),
@@ -33,18 +39,56 @@ def _build_phrase_regex(value_str):
     would match inside "2025"). Word boundaries plus flexible inter-word
     whitespace strike a middle ground that works across differently
     structured documents.
+
+    The leading/trailing boundary is digit-aware rather than a blanket `\\w`
+    check: it still blocks the value from matching as a substring of a
+    *longer number* (so "20" still can't match inside "2025"), but it no
+    longer blocks a number or date from matching just because the very next
+    character in the extracted text happens to be a letter. That situation
+    is common and legitimate here -- PDF table-cell extraction routinely
+    drops the whitespace between a boxed numeric value and the label text
+    that follows it (e.g. "5.242,20Codice fiscale del percipiente"), which a
+    plain `\\w` boundary would wrongly reject as "not a whole match" even
+    though the number itself is exactly present.
     """
     tokens = [t for t in _WHITESPACE_RE.split(value_str.strip()) if t]
     if not tokens:
         return None
     body = r"\s+".join(re.escape(t) for t in tokens)
-    return re.compile(r"(?<!\w)" + body + r"(?!\w)", re.IGNORECASE)
+    lead = r"(?<!\d)" if tokens[0][0].isdigit() else r"(?<!\w)"
+    trail = r"(?!\d)" if tokens[-1][-1].isdigit() else r"(?!\w)"
+    return re.compile(lead + body + trail, re.IGNORECASE)
 
 
 def _value_matches_text(pdf_text, value_str):
     """Whole-word(s), whitespace-tolerant, case-insensitive match of value_str in pdf_text."""
     pattern = _build_phrase_regex(value_str)
     return bool(pattern and pattern.search(pdf_text))
+
+
+def _year_month_table_hit(pdf_text, value_str):
+    """True if value_str is a bare "YYYY-MM" period (no day) and both its year
+    and its Spanish month name show up somewhere in the PDF text.
+
+    Social-Security-style "período de cotización" fields (e.g. "2026-07")
+    are frequently rendered in the source PDF as a year-by-month matrix
+    table -- the year labels one axis, the month name (in Spanish, e.g.
+    "julio") labels the other -- rather than printed as a single date
+    string. So neither "2026-07" nor any slash/dash rendering of it ever
+    appears verbatim, and the year and month text are typically nowhere
+    near each other in the extracted text (they come from different table
+    headers, not the same cell). A single variant string can't express
+    "these two facts appear separately in the document," so this is
+    checked as its own pair-presence rule rather than folded into
+    generate_value_variants.
+    """
+    m = re.match(r"^(\d{4})-(\d{1,2})$", value_str)
+    if not m:
+        return False
+    year, month = m.group(1), int(m.group(2))
+    if not 1 <= month <= 12:
+        return False
+    return _value_matches_text(pdf_text, year) and _value_matches_text(pdf_text, _SPANISH_MONTHS[month])
 
 
 def _strip_diacritics(text):
@@ -152,6 +196,12 @@ def compare_json_with_pdf(json_data, pdf_text):
             variants.append(f"{val_float:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
             # European format with dot for thousands and dot for decimals (1.166.34)
             variants.append(f"{val_float:,.2f}".replace(",", "."))
+            # Plain European decimal-comma with NO thousands grouping at all
+            # (5242,20). Not every printed amount gets a thousands separator --
+            # smaller amounts in these forms are frequently printed exactly as
+            # they're stored, just with the decimal point swapped for a comma.
+            if "." in value_str:
+                variants.append(value_str.replace(".", ","))
             # Not every decimal value is currency rounded to 2 places -- e.g. an
             # investment fund's number of shares can carry 6 decimal digits
             # ("0.685843"). Forcing 2-decimal rounding there produces "0.69",
@@ -177,13 +227,52 @@ def compare_json_with_pdf(json_data, pdf_text):
         except ValueError:
             pass
 
-        # 2. Variants for ISO dates (YYYY-MM-DD -> DD/MM/YYYY)
+        # 2. Variants for ISO dates (YYYY-MM-DD -> other common renderings)
         try:
             date_obj = datetime.strptime(value_str, "%Y-%m-%d")
             variants.append(date_obj.strftime("%d/%m/%Y"))
             variants.append(date_obj.strftime("%d-%m-%Y"))
+            variants.append(date_obj.strftime("%d.%m.%Y"))
+            # Grid-style official forms ("giorno mese anno") often print each
+            # date component as its own boxed value with nothing but
+            # whitespace between them -- no slash or dash at all, e.g.
+            # "01 12 2022" for 2022-12-01.
+            variants.append(date_obj.strftime("%d %m %Y"))
+            # Some printed dates skip the leading zero on day/month
+            # ("14/3/2026" rather than "14/03/2026").
+            variants.append(f"{date_obj.day}/{date_obj.month}/{date_obj.year}")
+            variants.append(f"{date_obj.day}-{date_obj.month}-{date_obj.year}")
         except ValueError:
             pass
+
+        # 2b. Variants for year-month-only values (YYYY-MM, no day) that ARE
+        # printed together somewhere in the PDF, rather than split across a
+        # table's separate row/column headers (see _year_month_table_hit for
+        # that case) -- e.g. "07/2026" or "julio 2026" for period "2026-07".
+        year_month_match = re.match(r"^(\d{4})-(\d{1,2})$", value_str)
+        if year_month_match:
+            year_str, month_str = year_month_match.groups()
+            month_num = int(month_str)
+            if 1 <= month_num <= 12:
+                variants.append(f"{month_num:02d}/{year_str}")
+                variants.append(f"{month_num}/{year_str}")
+                variants.append(f"{_SPANISH_MONTHS[month_num]} {year_str}")
+                variants.append(f"{_SPANISH_MONTHS[month_num]} de {year_str}")
+
+        # 3. Variants for day-month-only values with no year, e.g. "10-1" or
+        # "31-12". These show up in insurance/registration-period fields
+        # where the JSON stores a bare "giorno-mese" pair. The source PDF's
+        # grid boxes print the two components back-to-back with no separator
+        # at all, with the day always zero-padded to two digits but the
+        # month printed at its natural width -- day=10/month=1 becomes
+        # "101", not "0101".
+        day_month_match = re.match(r"^(\d{1,2})-(\d{1,2})$", value_str)
+        if day_month_match:
+            day, month = int(day_month_match.group(1)), int(day_month_match.group(2))
+            variants.append(f"{day:02d}{month}")
+            variants.append(f"{day:02d}{month:02d}")
+            variants.append(f"{day:02d}/{month}")
+            variants.append(f"{day:02d} {month}")
 
         return variants
 
@@ -219,6 +308,7 @@ def compare_json_with_pdf(json_data, pdf_text):
                 _confident_variant_hit(pdf_text, variants)
                 or _all_words_present(pdf_text, value_str)
                 or _accent_insensitive_hit(pdf_text_stripped, variants)
+                or _year_month_table_hit(pdf_text, value_str)
             ):
                 matches.append((path, value_str))
             elif _loose_trace_present(pdf_text_lower, variants):
