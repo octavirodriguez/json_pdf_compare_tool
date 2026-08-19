@@ -21,6 +21,7 @@ from auditor import (
     _loose_trace_present,
     _strip_diacritics,
     _value_matches_text,
+    _year_month_table_hit,
     audit_directory_recursively,
     compare_json_with_pdf,
     derive_base_key,
@@ -67,6 +68,19 @@ class TestBuildPhraseRegex:
     def test_case_insensitive(self):
         pat = _build_phrase_regex("madrid")
         assert pat.search("MADRID")
+
+    def test_number_immediately_followed_by_letter_still_matches(self):
+        # PDF table-cell extraction often drops the whitespace between a
+        # boxed numeric value and the label text that follows it.
+        pat = _build_phrase_regex("5.242,20")
+        assert pat.search("27 5.242,20Codice fiscale del percipiente")
+
+    def test_number_still_blocked_inside_longer_number(self):
+        # The digit-aware boundary must still refuse to match a number as a
+        # substring of a longer, different number.
+        pat = _build_phrase_regex("20")
+        assert not pat.search("Year 2025 applies")
+        assert not pat.search("applies 1520 here")
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +172,31 @@ class TestAccentInsensitiveHit:
         pdf_stripped = _strip_diacritics("ab text")
         short = "ab"  # len < MIN_CONFIDENT_MATCH_LENGTH
         assert not _accent_insensitive_hit(pdf_stripped, [short])
+
+
+# ---------------------------------------------------------------------------
+# _year_month_table_hit
+# ---------------------------------------------------------------------------
+
+class TestYearMonthTableHit:
+    def test_year_and_month_name_present_far_apart(self):
+        # Simulates a Social-Security-style year x month matrix table: "2026"
+        # is a row header, "Junio" a column header elsewhere in the text,
+        # with no adjacency and no literal "2026-06"/"06/2026" anywhere.
+        pdf = "Base de cotizacion 2026 Enero Febrero Marzo Abril Mayo Junio 2952.69"
+        assert _year_month_table_hit(pdf, "2026-06")
+
+    def test_missing_month_name_is_not_a_hit(self):
+        pdf = "Base de cotizacion 2026 Enero Febrero Marzo"
+        assert not _year_month_table_hit(pdf, "2026-06")
+
+    def test_missing_year_is_not_a_hit(self):
+        pdf = "Junio Julio Agosto"
+        assert not _year_month_table_hit(pdf, "2026-06")
+
+    def test_non_year_month_value_is_not_a_hit(self):
+        assert not _year_month_table_hit("2026 Junio", "not-a-date")
+        assert not _year_month_table_hit("2026 Junio", "2026-13")
 
 
 # ---------------------------------------------------------------------------
@@ -254,6 +293,67 @@ class TestCompareJsonWithPdf:
         _, mismatches, unverifiable = compare_json_with_pdf({"country": "ITALIA"}, pdf)
         assert any("ITALIA" in v for _, v in unverifiable)
         assert not mismatches
+
+    def test_number_run_into_following_label_still_matches(self):
+        # No whitespace between the boxed value and the next label -- a real
+        # pypdf extraction artifact seen in Agenzia Entrate CU forms.
+        pdf = "27 5.242,20Codice fiscale del percipiente Mod. N."
+        matches, mismatches, _ = compare_json_with_pdf({"ammontare": "5242.20"}, pdf)
+        assert any("5242.20" in v for _, v in matches)
+        assert not mismatches
+
+    def test_number_without_thousands_grouping_matches(self):
+        # Not every printed amount gets a thousands separator.
+        pdf = "Importo: 5242,20 euro"
+        matches, _, _ = compare_json_with_pdf({"amount": "5242.20"}, pdf)
+        assert any("5242.20" in v for _, v in matches)
+
+    def test_date_printed_as_space_separated_grid_boxes(self):
+        # Italian "giorno mese anno" grid forms print each date component as
+        # its own boxed value with only whitespace between them.
+        pdf = "365 01 12 2022 X"
+        matches, mismatches, _ = compare_json_with_pdf({"dataInizio": "2022-12-01"}, pdf)
+        assert any("2022-12-01" in v for _, v in matches)
+        assert not mismatches
+
+    def test_date_printed_without_leading_zeros(self):
+        pdf = "del 14/3/2026"
+        matches, _, _ = compare_json_with_pdf({"data": "2026-03-14"}, pdf)
+        assert any("2026-03-14" in v for _, v in matches)
+
+    def test_day_month_only_value_printed_concatenated(self):
+        # INAIL insurance-period fields store a bare "giorno-mese" pair with
+        # no year; the PDF prints the two components back-to-back with no
+        # separator, day zero-padded, month at its natural width.
+        pdf = "101 3112 B923Codice fiscale del percipiente"
+        matches, mismatches, _ = compare_json_with_pdf(
+            {"dataInizioGiornoMese": "10-1", "dataFineGiornoMese": "31-12"}, pdf
+        )
+        matched_values = {v for _, v in matches}
+        assert "10-1" in matched_values
+        assert "31-12" in matched_values
+        assert not mismatches
+
+    def test_year_month_period_matches_table_layout(self):
+        # Spanish Social Security "vida laboral" reports print a bare
+        # "período" like "2026-07" as a year x month matrix table -- the
+        # year and the Spanish month name appear as separate row/column
+        # headers, not as one adjacent date string.
+        pdf = "Periodos de cotizacion 2026 Enero Febrero Marzo Abril Mayo Junio Julio Base 4092.07"
+        matches, mismatches, _ = compare_json_with_pdf({"periodo": "2026-07"}, pdf)
+        assert any("2026-07" in v for _, v in matches)
+        assert not mismatches
+
+    def test_year_month_period_matches_adjacent_rendering(self):
+        pdf = "Periodo: julio de 2026"
+        matches, mismatches, _ = compare_json_with_pdf({"periodo": "2026-07"}, pdf)
+        assert any("2026-07" in v for _, v in matches)
+        assert not mismatches
+
+    def test_year_month_period_without_month_still_a_discrepancy(self):
+        pdf = "Periodos de cotizacion 2026 Enero Febrero"
+        _, mismatches, _ = compare_json_with_pdf({"periodo": "2026-07"}, pdf)
+        assert any("2026-07" in v for _, v in mismatches)
 
 
 # ---------------------------------------------------------------------------
