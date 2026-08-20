@@ -355,6 +355,64 @@ class TestCompareJsonWithPdf:
         _, mismatches, _ = compare_json_with_pdf({"periodo": "2026-07"}, pdf)
         assert any("2026-07" in v for _, v in mismatches)
 
+    def test_settimane_matches_pdf_abbreviation_sett(self):
+        pdf = "Tipo contributo: sett."
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"regimeGenerale": [{"tipoContributo": "Settimane"}]},
+            pdf,
+        )
+        assert any("Settimane" in v for _, v in matches)
+        assert not mismatches
+        assert not unverifiable
+
+    def test_integral_decimal_contribution_matches_plain_integer(self):
+        pdf = "Contributi utili diritto: 52"
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"regimeGenerale": [{"contributiUtiliDiritto": "52.0"}]},
+            pdf,
+        )
+        assert any("52.0" in v for _, v in matches)
+        assert not mismatches
+        assert not unverifiable
+
+    def test_integral_decimal_giorni_matches_plain_integer(self):
+        pdf = "Giorni: 17"
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"lavoratoriSpettacoloSport": {"estrattoContoSpettacoloSport": [{"giorni": "17.0"}]}},
+            pdf,
+        )
+        assert any("17.0" in v for _, v in matches)
+        assert not mismatches
+        assert not unverifiable
+
+    def test_low_signal_short_code_path_is_skipped(self):
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"regimeGenerale": [{"primaNota": {"codice": "O"}}]},
+            "",
+        )
+        assert not matches
+        assert not mismatches
+        assert not unverifiable
+
+    def test_low_signal_short_mesi_contribuzione_is_skipped(self):
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"regimeParasubordinati": {"estrattoContoMontanteContributivo": [{"mesiContribuzione": "3"}]}},
+            "",
+        )
+        assert not matches
+        assert not mismatches
+        assert not unverifiable
+
+    def test_comune_sigla_matches_parenthesized_pdf_format(self):
+        pdf = "Comune di nascita: NAPOLI (NA)"
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"datiIdentificativi": {"comuneStatoNascita": "NAPOLI NA"}},
+            pdf,
+        )
+        assert any("NAPOLI NA" in v for _, v in matches)
+        assert not mismatches
+        assert not unverifiable
+
 
 # ---------------------------------------------------------------------------
 # extract_pdf_text — error handling
