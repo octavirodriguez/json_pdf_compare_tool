@@ -30,6 +30,40 @@ _SPANISH_MONTHS = {
 }
 
 
+# Known domain abbreviations used in PDF renderings.
+_VALUE_ALIASES = {
+    "settimane": ["sett.", "sett"],
+}
+
+
+# Some contribution counters are stored in JSON as X.0 but are printed in PDFs
+# as plain integers (X). For these specific field families, accept that form as
+# a confident hit when the integer appears as a standalone token.
+_INTEGER_RENDERED_NUMERIC_PATH_HINTS = (
+    "contributiUtiliDiritto",
+    "contributiUtiliCalcolo",
+    ".giorni",
+)
+
+
+# Certain fields are short internal codes/counters that are frequently rendered
+# as labels or tightly packed table glyphs in PDFs. A text-search check on
+# 1-2 char values here is too noisy to be actionable, so these are skipped when
+# their value is below MIN_CONFIDENT_MATCH_LENGTH.
+_LOW_SIGNAL_SHORT_PATH_HINTS = (
+    ".primaNota.codice",
+    ".gruppo.codice",
+    ".nota.codice",
+    ".anzianitaDiritto.anni",
+    ".anzianitaDiritto.mesi",
+    ".anzianitaDiritto.giorni",
+    ".anzianitaMisura.anni",
+    ".anzianitaMisura.mesi",
+    ".anzianitaMisura.giorni",
+    ".mesiContribuzione",
+)
+
+
 def _build_phrase_regex(value_str):
     """Builds a case-insensitive regex that matches `value_str` as whole word(s),
     tolerating any amount of whitespace (including line breaks) between the
@@ -89,6 +123,38 @@ def _year_month_table_hit(pdf_text, value_str):
     if not 1 <= month <= 12:
         return False
     return _value_matches_text(pdf_text, year) and _value_matches_text(pdf_text, _SPANISH_MONTHS[month])
+
+
+def _integral_decimal_rendered_as_integer_hit(pdf_text, path, value_str):
+    """True when a decimal whole number (e.g. 52.0) is printed as a bare
+    integer token (e.g. 52) in the PDF for known contribution-counter fields.
+    """
+    if not any(hint in path for hint in _INTEGER_RENDERED_NUMERIC_PATH_HINTS):
+        return False
+
+    normalized = value_str.replace(",", ".")
+    if not re.match(r"^-?\d+\.0+$", normalized):
+        return False
+
+    try:
+        int_token = str(int(float(normalized)))
+    except ValueError:
+        return False
+
+    # Require a standalone alphanumeric token to avoid matching inside
+    # larger numeric/alphanumeric fragments.
+    pattern = re.compile(rf"(?<![A-Za-z0-9]){re.escape(int_token)}(?![A-Za-z0-9])")
+    return bool(pattern.search(pdf_text))
+
+
+def _should_skip_low_signal_short_value(path, value_str):
+    """True when the value is too short to verify reliably and belongs to a
+    known low-signal path family where short literals are often not explicitly
+    printed in machine-searchable text.
+    """
+    return len(value_str) < MIN_CONFIDENT_MATCH_LENGTH and any(
+        hint in path for hint in _LOW_SIGNAL_SHORT_PATH_HINTS
+    )
 
 
 def _strip_diacritics(text):
@@ -189,6 +255,10 @@ def compare_json_with_pdf(json_data, pdf_text):
     def generate_value_variants(value_str):
         variants = [value_str]
 
+        alias_variants = _VALUE_ALIASES.get(value_str.lower())
+        if alias_variants:
+            variants.extend(alias_variants)
+
         # 1. Variants for float/currency numbers
         try:
             val_float = float(value_str)
@@ -274,6 +344,14 @@ def compare_json_with_pdf(json_data, pdf_text):
             variants.append(f"{day:02d}/{month}")
             variants.append(f"{day:02d} {month}")
 
+        # 4. Variants for Italian city+province renderings where JSON often has
+        # "CITY PR" while PDFs print "CITY (PR)".
+        comune_match = re.match(r"^(.+?)\s+([A-Z]{2})$", value_str)
+        if comune_match:
+            city, province = comune_match.groups()
+            variants.append(f"{city} ({province})")
+            variants.append(f"{city}({province})")
+
         return variants
 
     def search_recursive(obj, path=""):
@@ -287,6 +365,9 @@ def compare_json_with_pdf(json_data, pdf_text):
             value_str = str(obj).strip()
 
             if value_str.lower() in ["true", "false"]:
+                return
+
+            if _should_skip_low_signal_short_value(path, value_str):
                 return
 
             if len(value_str) < MIN_CONFIDENT_MATCH_LENGTH:
@@ -309,6 +390,7 @@ def compare_json_with_pdf(json_data, pdf_text):
                 or _all_words_present(pdf_text, value_str)
                 or _accent_insensitive_hit(pdf_text_stripped, variants)
                 or _year_month_table_hit(pdf_text, value_str)
+                or _integral_decimal_rendered_as_integer_hit(pdf_text, path, value_str)
             ):
                 matches.append((path, value_str))
             elif _loose_trace_present(pdf_text_lower, variants):
