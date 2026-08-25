@@ -18,7 +18,7 @@ data/
 reports/
 *_reports/
 
-# py2app build output (see BUILD.md) — rebuild locally, don't commit binaries
+# py2app build output (see buildApp.md) — rebuild locally, don't commit binaries
 build/
 dist/
 *.egg-info/

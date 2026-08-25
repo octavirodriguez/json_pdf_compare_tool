@@ -3,7 +3,7 @@ JSON-PDF COMPARE TOOL — desktop GUI
 
 A lightweight wrapper around auditor.py's PDF/JSON audit engine, built with
 customtkinter so the whole thing can be packaged into a standalone macOS
-.app (see setup.py / BUILD.md) that runs without a separate Python install.
+.app (see setup.py / buildApp.md) that runs without a separate Python install.
 
 The GUI never re-implements the matching/reporting logic — it only drives
 auditor.audit_directory_recursively() on a background thread and surfaces
