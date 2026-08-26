@@ -49,6 +49,11 @@ Pick a data folder, click **Run Audit**, then use **Open Report** or **Reveal
 Reports Folder** to see the results. It uses the exact same audit engine as
 the CLI (`auditor.py`) — nothing about the matching or report logic differs.
 
+You can also drop PDF and JSON files directly onto the app window. Dropped
+files are staged temporarily, normalized into a pair, audited immediately, and
+left in their original location unchanged. Drop one pair at a time when the
+filenames are unrelated.
+
 **Want a standalone app you can hand to someone without Python installed?**
 See [buildApp.md](buildApp.md) for packaging this into a double-clickable
 `JSON-PDF Compare Tool.app` with `py2app`.
