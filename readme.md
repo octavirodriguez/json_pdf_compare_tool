@@ -70,6 +70,41 @@ See [buildApp.md](buildApp.md) for packaging this into a double-clickable
    python auditor.py ./path/to/custom_folder
 
 3. View the generated Markdown report inside the `./reports` directory (`audit_report_YYYYMMDD_HHMMSS.md`). Each document is scored ✅ OK (all fields matched), 🟡 NEEDS REVIEW (no discrepancies, but some fields were unverifiable), or ❌ ISSUES FOUND (at least one discrepancy).
+
+## 📥 Optional macOS Folder Action
+
+When incoming PDF and JSON files have unrelated names, place one pair at a time
+directly in your Desktop hot folder. The included `rename_json_to_pdf.py` script
+renames the JSON to the PDF's basename while preserving the `.json` extension:
+
+```text
+JSON-PDF Hot Folder/
+├── official_document.pdf
+└── export_abc.json
+```
+
+The pair is then moved automatically to this repository's `data/` folder:
+
+```text
+data/
+├── official_document.pdf
+└── official_document.json
+```
+
+The script changes the hot folder only when it contains exactly one PDF and one
+JSON, then moves the renamed pair to `data/`. It never overwrites an existing
+file. Process one pair at a time so unrelated files cannot be confused. To use
+it as a macOS Folder Action,
+create a Folder Action in Automator, add **Run Shell Script**, choose **Pass
+input: as arguments**, and run:
+
+```bash
+/path/to/json_pdf_compare_tool/venv/bin/python3 \
+   /path/to/json_pdf_compare_tool/rename_json_to_pdf.py "$@"
+```
+
+The folder action may run when either file arrives; it safely does nothing until
+both files are present.
 ## 📁 Repository Structure
 ```text
 json_pdf_compare_tool/
@@ -80,6 +115,7 @@ json_pdf_compare_tool/
 ├── tests/             # pytest unit tests
 ├── auditor.py         # Core auditing engine
 ├── auditor_gui.py     # customtkinter desktop GUI, built on auditor.py
+├── rename_json_to_pdf.py # Optional macOS Folder Action helper
 ├── setup.py           # py2app packaging config
 ├── requirements.txt  # Runtime dependencies
 ├── buildApp.md        # How to build the standalone macOS app
