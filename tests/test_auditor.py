@@ -27,6 +27,7 @@ from auditor import (
     derive_base_key,
     extract_pdf_text,
 )
+from profiles import detect_profile
 
 
 # ---------------------------------------------------------------------------
@@ -262,6 +263,37 @@ class TestCompareJsonWithPdf:
     def test_short_value_goes_to_unverifiable(self):
         _, _, unverifiable = compare_json_with_pdf({"code": "AB"}, self.PDF)
         assert any("AB" in v for _, v in unverifiable)
+
+    def test_urssaf_zero_amounts_match_with_profile(self):
+        pdf = (
+            "DÉCLARATION MENSUELLE DE CHIFFRE D'AFFAIRES\n"
+            "Régime micro-social simplifié\n"
+            "Chiffre d'affaires des ventes de marchandises\n0 €\n"
+            "Cotisations, contributions et impôts\n0 €\n"
+        )
+        profile = detect_profile(pdf, {})
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {
+                "declaration": {"chiffreAffairesDesVentesDeMarchandises": "0"},
+                "montantAPayer": {
+                    "cotisationsEtContributions": [{"montant": "0"}],
+                },
+            },
+            pdf,
+            profile=profile,
+        )
+        assert any("chiffreAffairesDesVentesDeMarchandises" in path for path, _ in matches)
+        assert any("cotisationsEtContributions[0].montant" in path for path, _ in matches)
+        assert not mismatches
+        assert not unverifiable
+
+    def test_short_zero_without_urssaf_profile_remains_unverifiable(self):
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"code": "0"}, "Code: 0"
+        )
+        assert not matches
+        assert not mismatches
+        assert unverifiable == [("code", "0")]
 
     def test_none_and_empty_values_skipped(self):
         matches, mismatches, unverifiable = compare_json_with_pdf(

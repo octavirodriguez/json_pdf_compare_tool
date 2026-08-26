@@ -116,6 +116,9 @@ json_pdf_compare_tool/
 ├── auditor.py         # Core auditing engine
 ├── auditor_gui.py     # customtkinter desktop GUI, built on auditor.py
 ├── rename_json_to_pdf.py # Optional macOS Folder Action helper
+├── profiles/           # Model-specific audit rules
+│   ├── base.py         # Profile interface
+│   └── urssaf_autoentrepreneur.py # URSSAF rules
 ├── setup.py           # py2app packaging config
 ├── requirements.txt  # Runtime dependencies
 ├── buildApp.md        # How to build the standalone macOS app
