@@ -242,7 +242,7 @@ def _loose_trace_present(pdf_text_lower, variants):
 MIN_CONFIDENT_MATCH_LENGTH = 3
 
 
-def compare_json_with_pdf(json_data, pdf_text):
+def compare_json_with_pdf(json_data, pdf_text, profile=None):
     """Recursively walks through the JSON and verifies if values exist within the PDF text."""
     mismatches = []
     matches = []
@@ -368,6 +368,10 @@ def compare_json_with_pdf(json_data, pdf_text):
                 return
 
             if _should_skip_low_signal_short_value(path, value_str):
+                return
+
+            if profile and profile.confident_short_value_hit(pdf_text, path, value_str):
+                matches.append((path, value_str))
                 return
 
             if len(value_str) < MIN_CONFIDENT_MATCH_LENGTH:
@@ -599,7 +603,15 @@ def audit_directory_recursively(root_dir, reports_dir):
             print(f"❌ Error reading JSON {json_path.name}: {e}")
             continue
 
-        matches, mismatches, unverifiable = compare_json_with_pdf(json_data, pdf_text or "")
+        profile = None
+        if pdf_text is not None:
+            from profiles import detect_profile
+
+            profile = detect_profile(pdf_text, json_data)
+
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            json_data, pdf_text or "", profile=profile
+        )
 
         results.append({
             "name": name,
