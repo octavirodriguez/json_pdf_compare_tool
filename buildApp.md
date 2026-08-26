@@ -38,6 +38,17 @@ This creates the app inside `dist/` — look for `JSON-PDF Compare Tool.app` (py
 may name it after the script instead, e.g. `auditor_gui.app`, depending on
 version; either way it's the only `.app` under `dist/`).
 
+If macOS reports that the app is damaged or cannot be opened, re-sign the local
+bundle after building. Some py2app/Python combinations leave an embedded Tk
+framework with an invalid signature after stripping binaries:
+
+```bash
+codesign --deep --force --verify --verbose --sign - \
+	"dist/JSON-PDF Compare Tool.app"
+codesign --verify --deep --strict --verbose=2 \
+	"dist/JSON-PDF Compare Tool.app"
+```
+
 ## 4. Test it standalone
 
 Before distributing, quit Terminal (or at least deactivate the venv) and
@@ -45,6 +56,8 @@ double-click the `.app` in Finder directly. Confirm:
 
 * It opens with no Python/Terminal window involved.
 * "Select Data Folder…" opens a real folder picker.
+* Dropping PDF/JSON files onto the app window stages and audits them without
+	changing the original files.
 * "Run Audit" processes a real PDF/JSON pair and produces a report.
 * "Open Report" and "Reveal Reports Folder" both work.
 

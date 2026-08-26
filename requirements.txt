@@ -1,3 +1,4 @@
 pypdf
 customtkinter
+tkinterdnd2
 pytest

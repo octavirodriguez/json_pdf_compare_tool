@@ -12,15 +12,20 @@ its print() output and results in the window.
 
 import os
 import queue
+import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import traceback
+from pathlib import Path
 
 from tkinter import filedialog
 import customtkinter as ctk
+from tkinterdnd2 import DND_FILES, TkinterDnD
 
 import auditor
+from rename_json_to_pdf import rename_json_for_pdf
 
 
 class _QueueWriter:
@@ -46,7 +51,7 @@ class _QueueWriter:
         pass
 
 
-class AuditorApp(ctk.CTk):
+class AuditorApp(TkinterDnD.Tk):
     def __init__(self):
         super().__init__()
 
@@ -62,9 +67,16 @@ class AuditorApp(ctk.CTk):
         self.log_queue = queue.Queue()
         self.last_results = None
         self.last_report_path = None
+        self.drop_work_dir = tempfile.TemporaryDirectory(prefix="json_pdf_compare_")
 
         self._build_layout()
+        self.drop_target_register(DND_FILES)
+        self.dnd_bind("<<Drop>>", self._handle_drop)
         self._poll_log_queue()
+
+    def destroy(self):
+        self.drop_work_dir.cleanup()
+        super().destroy()
 
     # --- Layout ------------------------------------------------------------
 
@@ -76,7 +88,7 @@ class AuditorApp(ctk.CTk):
 
         subtitle = ctk.CTkLabel(
             self,
-            text="Compare PDF/JSON document pairs and generate an audit report.",
+            text="Drop PDF/JSON files here, or select a folder, to generate an audit report.",
             text_color="gray60",
         )
         subtitle.pack(pady=(0, 16))
@@ -123,6 +135,33 @@ class AuditorApp(ctk.CTk):
 
         self.status_label = ctk.CTkLabel(result_frame, text="", text_color="gray60")
         self.status_label.pack(side="right")
+
+    def _handle_drop(self, event):
+        dropped_paths = [Path(path) for path in self.tk.splitlist(event.data)]
+        files = [path for path in dropped_paths if path.is_file()]
+        supported = [path for path in files if path.suffix.lower() in (".pdf", ".json")]
+        if not supported:
+            self._log("No PDF or JSON files were dropped.\n")
+            return
+
+        drop_dir = Path(self.drop_work_dir.name) / "input"
+        if drop_dir.exists():
+            shutil.rmtree(drop_dir)
+        drop_dir.mkdir()
+
+        for source in supported:
+            shutil.copy2(source, drop_dir / source.name)
+
+        staged_data_dir = Path(self.drop_work_dir.name) / "data"
+        rename_json_for_pdf(drop_dir, staged_data_dir)
+        self.data_dir = str(staged_data_dir if staged_data_dir.exists() else drop_dir)
+        self.reports_dir = str(Path(self.drop_work_dir.name) / "reports")
+        self.folder_label.configure(text=f"Dropped {len(supported)} file(s)", text_color=("black", "white"))
+        self.run_btn.configure(state="normal")
+        self._clear_log()
+        self._log(f"Received {len(supported)} PDF/JSON file(s).\n")
+        self._log("Files are staged and normalized temporarily; originals are unchanged.\n\n")
+        self._start_audit()
 
     # --- Folder selection ----------------------------------------------------
 

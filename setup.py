@@ -14,14 +14,14 @@ DATA_FILES = []
 
 OPTIONS = {
     "argv_emulation": False,
-    "packages": ["pypdf", "customtkinter", "darkdetect"],
-    "includes": ["auditor"],
+    "packages": ["pypdf", "customtkinter", "darkdetect", "tkinterdnd2", "profiles"],
+    "includes": ["auditor", "profiles", "profiles.base", "profiles.urssaf_autoentrepreneur"],
     "plist": {
         "CFBundleName": "JSON-PDF Compare Tool",
         "CFBundleDisplayName": "JSON-PDF Compare Tool",
         "CFBundleIdentifier": "com.octavirodriguez.jsonpdfcomparetool",
-        "CFBundleVersion": "1.1.0",
-        "CFBundleShortVersionString": "1.1.0",
+        "CFBundleVersion": "1.2.0",
+        "CFBundleShortVersionString": "1.2.0",
         "NSHumanReadableCopyright": "MIT License",
         "NSHighResolutionCapable": True,
     },
