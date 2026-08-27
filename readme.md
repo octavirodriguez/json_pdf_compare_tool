@@ -10,7 +10,7 @@ An automated auditing tool to ingest, validate, and compare different administra
 * **Smart Verification:** Checks JSON key-value pairs against PDF text content, supporting European numeric formats (`1.166,34`), standard floats (`1.166.34`), and ISO dates (`YYYY-MM-DD` to `DD/MM/YYYY`). Matching is case-insensitive and tolerant of line wraps/whitespace differences between the PDF and JSON, and a word-order-independent fallback catches fields a PDF splits differently than the JSON (e.g. a full name stored as one JSON field but printed as separate "Cognome" / "Nome" lines).
 * **Three-Tier Audit Outcome:** Each JSON field is reported as a **Match** (confidently verified), a **Discrepancy** (no trace of the value found anywhere in the PDF — the strongest signal of a real data problem), or **Unverifiable** (a weak/coincidental textual trace was found, but not enough to confirm — worth a quick manual look rather than treating it as pass or fail).
 * **Markdown Audit Reports:** Automatically generates detailed execution reports with executive summaries and field-level match/unverifiable/discrepancy breakdowns.
-* **Desktop App:** A `customtkinter` GUI (`auditor_gui.py`) drives the same audit engine — pick a folder, click *Run Audit*, and view results — and can be packaged into a standalone macOS app that runs without Python installed (see [buildApp.md](buildApp.md)).
+* **Desktop App:** A `customtkinter` GUI (`auditor_gui.py`) drives the same audit engine — pick a folder, click *Run Audit*, and view results.
 
 ---
 
@@ -40,6 +40,11 @@ pip install -r requirements.txt
 ---
 
 ## 🖥️ Desktop App
+<div align="center">
+<img src="img/gui.png" height="480" />
+</div>
+
+🍏 Mac Users: If the application crashes on launch or shows an error, it is due to macOS Gatekeeper. Please follow the quick steps in our [macOS Troubleshooting Guide](docs/run-on-macos.md) to trust the app locally
 
 Prefer a GUI over the command line? Run:
 ````Bash
@@ -53,10 +58,6 @@ You can also drop PDF and JSON files directly onto the app window. Dropped
 files are staged temporarily, normalized into a pair, audited immediately, and
 left in their original location unchanged. Drop one pair at a time when the
 filenames are unrelated.
-
-**Want a standalone app you can hand to someone without Python installed?**
-See [buildApp.md](buildApp.md) for packaging this into a double-clickable
-`JSON-PDF Compare Tool.app` with `py2app`.
 
 ---
 
@@ -77,6 +78,9 @@ See [buildApp.md](buildApp.md) for packaging this into a double-clickable
 3. View the generated Markdown report inside the `./reports` directory (`audit_report_YYYYMMDD_HHMMSS.md`). Each document is scored ✅ OK (all fields matched), 🟡 NEEDS REVIEW (no discrepancies, but some fields were unverifiable), or ❌ ISSUES FOUND (at least one discrepancy).
 
 ## 📥 Optional macOS Folder Action
+<div align="center">
+<img src="img/autom.png" width="320" />
+</div>
 
 When incoming PDF and JSON files have unrelated names, place one pair at a time
 directly in your Desktop hot folder. The included `rename_json_to_pdf.py` script
@@ -110,12 +114,12 @@ input: as arguments**, and run:
 
 The folder action may run when either file arrives; it safely does nothing until
 both files are present.
+
 ## 📁 Repository Structure
 ```text
 json_pdf_compare_tool/
 ├── data/              # Input directory for PDF/JSON pairs (git-ignored — may hold real personal data)
 ├── reports/           # Generated Markdown audit reports (git-ignored)
-├── build/, dist/      # py2app build output (git-ignored — see buildApp.md)
 ├── venv/              # Python virtual environment (git-ignored)
 ├── tests/             # pytest unit tests
 ├── auditor.py         # Core auditing engine
@@ -124,10 +128,17 @@ json_pdf_compare_tool/
 ├── profiles/           # Model-specific audit rules
 │   ├── base.py         # Profile interface
 │   └── urssaf_autoentrepreneur.py # URSSAF rules
-├── setup.py           # py2app packaging config
+├── docs/               # Usage and maintainer documentation
+│   ├── HOW_IT_WORKS.md
+│   ├── buildApp.md
+│   └── run-on-macos.md
+├── img/                # README screenshots
+│   ├── autom.png
+│   └── gui.png
 ├── requirements.txt  # Runtime dependencies
-├── buildApp.md        # How to build the standalone macOS app
+├── setup.py            # macOS app packaging configuration
 ├── readme.md          # Project documentation
+├── LICENSE             # MIT license
 └── .gitignore         # Git ignore rules
 ```
 ---
