@@ -141,13 +141,13 @@ For each actual value found, a Match can be reached three ways: an exact-ish mat
 
 ### `derive_base_key(stem)`
 
-**What it does:** This is what makes "batch mode" possible. PDF/JSON pairs from the source system share a common filename but each has its own 13-character system-generated code tacked onto the end (e.g. `..._W2IWIZ2W_DBS.pdf` and `..._W2IWIZ9C_4US.json`) — so the filenames are *almost* identical but not quite. This function strips that trailing code off so both files reduce to the same "base name," which is then used to pair them up. If a filename is too short to safely strip 13 characters from, it prints a warning and just uses the whole name as-is rather than mangling it.
+**What it does:** Provides a legacy compatibility helper for file-name normalization when the source system appends a generated suffix to the base document name. In the current architecture, filename matching is intentionally not the primary pairing strategy; model detection is handled by the profile system, and the process is more robust when it looks at document structure and content instead of a hard-coded suffix length.
 
-**Parameter:** `stem` — a filename without its extension (e.g. `report_ABC123` from `report_ABC123.pdf`).
+**Parameter:** `stem` — a filename without its extension.
 
-**Returns:** The base name used for pairing (a string).
+**Returns:** The normalized base name used for compatibility with older folder layouts.
 
-**Used by:** `audit_directory_recursively`, once per file found.
+**Used by:** `audit_directory_recursively`, once per file found, as a fallback layer rather than the main pairing mechanism.
 
 ---
 
@@ -155,9 +155,9 @@ For each actual value found, a Match can be reached three ways: an exact-ish mat
 
 **What it does:** This is the one function everything else in the file exists to support, and the only one called from outside `auditor.py` (both the command-line entry point and the GUI call this directly). Step by step:
 
-1. Walks every file inside `root_dir`, including subfolders, and sorts every `.pdf` and `.json` file it finds into two lookup tables, keyed by their "base name" (via `derive_base_key`). If two different files reduce to the same base name, it prints a warning and keeps only the first one found — rather than silently overwriting or dropping data without telling you.
-2. Finds the file names that exist in *both* tables — i.e. the actual pairs.
-3. For each pair: extracts the PDF's text (`extract_pdf_text`), loads the JSON, runs the comparison (`compare_json_with_pdf`), and prints a one-line progress summary.
+1. Walks every file inside `root_dir`, including subfolders, and identifies every `.pdf` and `.json` file it finds.
+2. Uses the profile system to detect the document model, then keeps the model-specific comparison logic in the matching profile instead of hard-coding filename assumptions.
+3. For each recognized pair: extracts the PDF's text (`extract_pdf_text`), loads the JSON, runs the comparison (`compare_json_with_pdf`), and prints a one-line progress summary.
 4. Once every pair has been processed, generates the final report (`generate_markdown_report`).
 
 **Parameters:** `root_dir` (the folder to search for PDF/JSON pairs) and `reports_dir` (where to save the generated report).
