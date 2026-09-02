@@ -287,6 +287,46 @@ class TestCompareJsonWithPdf:
         assert not mismatches
         assert not unverifiable
 
+    def test_detects_anpr_profile(self):
+        pdf = (
+            "Protocollo ANPR: 4476086914\n"
+            "Certificato contestuale Anagrafico di nascita\n"
+            "Anagrafe Nazionale della Popolazione Residente"
+        )
+        profile = detect_profile(pdf, {})
+        assert profile is not None
+        assert profile.name == "anpr"
+
+    def test_detects_agenzia_entrate_certification_profile(self):
+        pdf = (
+            "DATI ANAGRAFICI\n"
+            "CERTIFICAZIONE LAVORO DIPENDENTE\n"
+            "Certificazione redditi"
+        )
+        profile = detect_profile(pdf, {})
+        assert profile is not None
+        assert profile.name == "agenzia_entrate_certificazione_unica"
+
+    def test_detects_inps_profile(self):
+        pdf = (
+            "Estratto conto previdenziale\n"
+            "Regime generale\n"
+            "Codice fiscale"
+        )
+        profile = detect_profile(pdf, {})
+        assert profile is not None
+        assert profile.name == "inps"
+
+    def test_detects_ricevuta_agenzia_profile(self):
+        pdf = (
+            "COMUNICAZIONE DI AVVENUTO RICEVIMENTO\n"
+            "Dichiarazione 730 2024\n"
+            "Protocollo"
+        )
+        profile = detect_profile(pdf, {})
+        assert profile is not None
+        assert profile.name == "ricevuta_agenzia_entrate"
+
     def test_short_zero_without_urssaf_profile_remains_unverifiable(self):
         matches, mismatches, unverifiable = compare_json_with_pdf(
             {"code": "0"}, "Code: 0"

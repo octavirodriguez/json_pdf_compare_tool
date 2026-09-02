@@ -27,3 +27,5 @@ dist/
 # IDE & Editor settings
 .vscode/
 .idea/
+# Local model samples and user files
+profiles/samples/

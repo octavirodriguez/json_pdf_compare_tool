@@ -1,9 +1,19 @@
 """Document-model profiles for model-specific audit rules."""
 
+from .agenzia_entrate_certificazione_unica import AgenziaEntrateCertificazioneUnicaProfile
+from .anpr import AnprProfile
+from .inps import InpsProfile
+from .ricevuta_agenzia_entrate import RicevutaAgenziaEntrateProfile
 from .urssaf_autoentrepreneur import UrssafAutoentrepreneurProfile
 
 
-PROFILES = (UrssafAutoentrepreneurProfile(),)
+PROFILES = (
+    UrssafAutoentrepreneurProfile(),
+    AnprProfile(),
+    AgenziaEntrateCertificazioneUnicaProfile(),
+    InpsProfile(),
+    RicevutaAgenziaEntrateProfile(),
+)
 
 
 def detect_profile(pdf_text, json_data):
