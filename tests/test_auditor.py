@@ -26,6 +26,7 @@ from auditor import (
     compare_json_with_pdf,
     derive_base_key,
     extract_pdf_text,
+    generate_markdown_report,
 )
 from profiles import detect_profile
 
@@ -286,6 +287,39 @@ class TestCompareJsonWithPdf:
         assert any("cotisationsEtContributions[0].montant" in path for path, _ in matches)
         assert not mismatches
         assert not unverifiable
+
+    def test_aeat_modelo_100_short_codes_match_with_profile(self):
+        pdf = (
+            "Agencia Tributaria Impuesto sobre la Renta de las Personas Físicas\n"
+            "Modelo 100\n"
+            "Estado civil (el 31-12-2025) (2) Casado/a 0007\n"
+            "Situación. 1 0065\n"
+        )
+        profile = detect_profile(pdf, {})
+        assert profile.name == "aeat_modelo_100"
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"estadoCivil": "2", "inmuebles": [{"situacion": "1"}]},
+            pdf,
+            profile=profile,
+        )
+        assert ("estadoCivil", "2") in matches
+        assert ("inmuebles[0].situacion", "1") in matches
+        assert not mismatches
+        assert not unverifiable
+
+    def test_aeat_modelo_100_unanchored_short_code_remains_unverifiable(self):
+        pdf = (
+            "Agencia Tributaria Impuesto sobre la Renta de las Personas Físicas\n"
+            "Modelo 100\n"
+            "Código interno: 1\n"
+        )
+        profile = detect_profile(pdf, {})
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"codigo": "1"}, pdf, profile=profile
+        )
+        assert not matches
+        assert not mismatches
+        assert unverifiable == [("codigo", "1")]
 
     def test_detects_anpr_profile(self):
         pdf = (
@@ -554,3 +588,32 @@ class TestAuditDirectoryRecursively:
 
         assert results == []
         assert "Error reading JSON" in capsys.readouterr().out
+
+
+# ---------------------------------------------------------------------------
+# generate_markdown_report — highlighting and formatting
+# ---------------------------------------------------------------------------
+
+class TestGenerateMarkdownReport:
+    def test_highlights_discrepancies_and_unverifiable_fields(self, tmp_path):
+        results = [
+            {
+                "name": "sample_doc",
+                "matches": [("person.name", "John Doe")],
+                "mismatches": [("person.taxId", "XYZ999")],
+                "unverifiable": [("person.status", "1")],
+            }
+        ]
+        reports_dir = tmp_path / "reports"
+        reports_dir.mkdir()
+
+        report_path = generate_markdown_report(results, str(reports_dir))
+        content = Path(report_path).read_text(encoding="utf-8")
+
+        # Check highlighted mismatch path and value
+        assert "* ❌ **JSON Path:** <mark>`person.taxId`</mark>" in content
+        assert "* **Expected Value (JSON):** <mark>`XYZ999`</mark>" in content
+
+        # Check highlighted unverifiable path and value
+        assert "* 🟡 **JSON Path:** <mark>`person.status`</mark>" in content
+        assert "* **Expected Value (JSON):** <mark>`1`</mark>" in content

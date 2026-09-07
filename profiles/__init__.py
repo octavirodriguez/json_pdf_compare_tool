@@ -1,5 +1,6 @@
 """Document-model profiles for model-specific audit rules."""
 
+from .aeat_modelo_100 import AeatModelo100Profile
 from .agenzia_entrate_certificazione_unica import AgenziaEntrateCertificazioneUnicaProfile
 from .anpr import AnprProfile
 from .inps import InpsProfile
@@ -8,7 +9,9 @@ from .urssaf_autoentrepreneur import UrssafAutoentrepreneurProfile
 
 
 PROFILES = (
+    AeatModelo100Profile(),
     UrssafAutoentrepreneurProfile(),
+    AeatModelo100Profile(),
     AnprProfile(),
     AgenziaEntrateCertificazioneUnicaProfile(),
     InpsProfile(),
