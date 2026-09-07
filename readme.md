@@ -33,9 +33,9 @@ cd json_pdf_compare_tool
 python3 -m venv venv
 source venv/bin/activate
 ````
-3. **Install dependencies:**
+3. **Install the project and development dependencies:**
 ````Bash
-pip install -r requirements.txt
+python -m pip install -e ".[dev]"
 ````
 
 ---
@@ -141,7 +141,7 @@ json_pdf_compare_tool/
 ├── img/                # README screenshots
 │   ├── autom.png
 │   └── gui.png
-├── requirements.txt  # Runtime dependencies
+├── pyproject.toml     # Project metadata and dependencies
 ├── setup.py            # macOS app packaging configuration
 ├── readme.md          # Project documentation
 ├── LICENSE             # MIT license
