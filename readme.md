@@ -6,9 +6,10 @@ An automated auditing tool to ingest, validate, and compare different administra
 
 ## 📋 Features
 
-* **Batch File Pairing:** Automatically matches `.pdf` and `.json` files recursively across directories by base filename, ignoring each file's trailing 13-character system-generated suffix (e.g. `..._W2IWIZ2W_DBS.pdf` / `..._W2IWIZ9C_4US.json`) — so you can drop many document pairs into `./data` at once without renaming anything. If two files would resolve to the same base name, the tool warns instead of silently dropping one.
+* **Model-Aware Detection:** Recognizes document families by their PDF/JSON content and loads the matching profile for model-specific verification rules. This avoids brittle filename assumptions and makes the tool flexible across different public administration document models.
 * **Smart Verification:** Checks JSON key-value pairs against PDF text content, supporting European numeric formats (`1.166,34`), standard floats (`1.166.34`), and ISO dates (`YYYY-MM-DD` to `DD/MM/YYYY`). Matching is case-insensitive and tolerant of line wraps/whitespace differences between the PDF and JSON, and a word-order-independent fallback catches fields a PDF splits differently than the JSON (e.g. a full name stored as one JSON field but printed as separate "Cognome" / "Nome" lines).
 * **Three-Tier Audit Outcome:** Each JSON field is reported as a **Match** (confidently verified), a **Discrepancy** (no trace of the value found anywhere in the PDF — the strongest signal of a real data problem), or **Unverifiable** (a weak/coincidental textual trace was found, but not enough to confirm — worth a quick manual look rather than treating it as pass or fail).
+* **Profile Architecture:** The comparison engine is generic, while document-specific rules live in profile classes under the `profiles/` package. New document families can be added without reworking the core matching logic.
 * **Markdown Audit Reports:** Automatically generates detailed execution reports with executive summaries and field-level match/unverifiable/discrepancy breakdowns.
 * **Desktop App:** A `customtkinter` GUI (`auditor_gui.py`) drives the same audit engine — pick a folder, click *Run Audit*, and view results.
 
@@ -63,7 +64,7 @@ filenames are unrelated.
 
 ## 💻 CLI Usage
 
-1. Place your PDF and JSON file pairs into the `./data` folder (subdirectories are supported). You can drop in a whole batch at once — files are paired by base filename once each one's trailing 13-character suffix is stripped, so `.pdf` and `.json` files don't need identical names.
+1. Place your PDF and JSON file pairs into the `./data` folder (subdirectories are supported). The tool expects each pair to belong to a recognized document model. When needed, it uses the model profile to interpret the document structure and validate the matching fields.
 
    > ⚠️ `./data` is git-ignored on purpose, since these are typically real fiscal/personal documents. Never remove `data/` from `.gitignore` or force-add files from it.
 
@@ -82,9 +83,7 @@ filenames are unrelated.
 <img src="img/autom.png" width="320" />
 </div>
 
-When incoming PDF and JSON files have unrelated names, place one pair at a time
-directly in your Desktop hot folder. The included `rename_json_to_pdf.py` script
-renames the JSON to the PDF's basename while preserving the `.json` extension:
+When incoming PDF and JSON files are already paired in a single folder, place one pair at a time directly in your Desktop hot folder. The included `rename_json_to_pdf.py` script renames the JSON to the PDF's basename while preserving the `.json` extension:
 
 ```text
 JSON-PDF Hot Folder/
