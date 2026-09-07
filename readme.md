@@ -127,6 +127,7 @@ json_pdf_compare_tool/
 ├── profiles/           # Model-specific audit rules
 │   ├── base.py         # Profile interface
 │   ├── es_aeat_modelo_100.py
+│   ├── es_aeat_modelo_303.py
 │   ├── es_ss_vida_laboral.py
 │   ├── fr_urssaf_autoentrepreneur.py
 │   ├── it_agenzia_entrate_certificazione_unica.py
