@@ -15,7 +15,13 @@ DATA_FILES = []
 OPTIONS = {
     "argv_emulation": False,
     "packages": ["pypdf", "customtkinter", "darkdetect", "tkinterdnd2", "profiles"],
-    "includes": ["auditor", "profiles", "profiles.base", "profiles.urssaf_autoentrepreneur"],
+    "includes": [
+        "auditor",
+        "profiles",
+        "profiles.base",
+        "profiles.aeat_modelo_100",
+        "profiles.urssaf_autoentrepreneur",
+    ],
     "plist": {
         "CFBundleName": "JSON-PDF Compare Tool",
         "CFBundleDisplayName": "JSON-PDF Compare Tool",

@@ -1,9 +1,10 @@
 """Document-model profiles for model-specific audit rules."""
 
+from .aeat_modelo_100 import AeatModelo100Profile
 from .urssaf_autoentrepreneur import UrssafAutoentrepreneurProfile
 
 
-PROFILES = (UrssafAutoentrepreneurProfile(),)
+PROFILES = (AeatModelo100Profile(), UrssafAutoentrepreneurProfile())
 
 
 def detect_profile(pdf_text, json_data):
