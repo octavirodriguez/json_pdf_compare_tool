@@ -321,6 +321,39 @@ class TestCompareJsonWithPdf:
         assert not mismatches
         assert unverifiable == [("codigo", "1")]
 
+    def test_detects_aeat_modelo_303_profile_and_matches_period(self):
+        pdf = (
+            "Agencia Tributaria\n"
+            "Impuesto sobre el Valor Añadido\n"
+            "Modelo 303 Autoliquidación\n"
+            "Ejercicio 2025 Período 4T\n"
+        )
+        profile = detect_profile(pdf, {})
+        assert profile is not None
+        assert profile.name == "aeat_modelo_303_iva_autoliquidacion"
+
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"devengo": {"periodo": "4T"}}, pdf, profile=profile
+        )
+        assert ("devengo.periodo", "4T") in matches
+        assert not mismatches
+        assert not unverifiable
+
+    def test_aeat_modelo_303_unanchored_short_code_remains_unverifiable(self):
+        pdf = (
+            "Agencia Tributaria\n"
+            "Impuesto sobre el Valor Añadido\n"
+            "Modelo 303 Autoliquidación\n"
+            "Código interno 4T\n"
+        )
+        profile = detect_profile(pdf, {})
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"codigo": "4T"}, pdf, profile=profile
+        )
+        assert not matches
+        assert not mismatches
+        assert unverifiable == [("codigo", "4T")]
+
     def test_detects_anpr_profile(self):
         pdf = (
             "Protocollo ANPR: 4476086914\n"

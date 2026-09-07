@@ -20,6 +20,7 @@ OPTIONS = {
         "profiles",
         "profiles.base",
         "profiles.es_aeat_modelo_100",
+        "profiles.es_aeat_modelo_303",
         "profiles.es_ss_vida_laboral",
         "profiles.fr_urssaf_autoentrepreneur",
         "profiles.it_agenzia_entrate_certificazione_unica",
