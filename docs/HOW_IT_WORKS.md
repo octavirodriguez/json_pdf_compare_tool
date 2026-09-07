@@ -18,33 +18,7 @@ There are three files involved, each with a distinct job:
 
 ---
 
-## 2. A few terms, explained simply
-
-You don't need a programming background for what follows, but these words come up constantly:
-
-**Function** — a named, reusable block of code that does one job. You "call" it by name, optionally hand it some input, and it optionally hands you back a result. Think of it like a recipe: you give it ingredients (its *parameters*), it gives you back a dish (its *return value*).
-
-**Parameter / argument** — the input(s) a function expects. E.g. a function that extracts text from a PDF needs to know *which* PDF — that's its parameter.
-
-**Return value** — what a function hands back once it's done. Some functions return nothing meaningful (they just *do* something, like printing a message); most of the important ones here return data the rest of the program then uses.
-
-**String** — a piece of text, e.g. `"Mario Rossi"`.
-
-**List** — an ordered collection of items, written like `[item1, item2, item3]`. E.g. the list of all mismatches found in a document.
-
-**Dictionary (dict)** — a collection of labeled values, like a small filing system: each value is stored under a label (called a "key"). JSON files are essentially nested dictionaries, which is exactly why the tool can walk through one automatically regardless of what fields it happens to contain.
-
-**Tuple** — a small fixed pair (or group) of values bundled together, e.g. `(field_name, field_value)`. Used here to keep a JSON field's path and its value glued together as one unit inside a list.
-
-**Class / object** — a template for bundling related data and behavior together. `AuditorApp` (the whole GUI window) and `_QueueWriter` (explained later) are both classes.
-
-**Exception / `try`/`except`** — Python's way of handling things that might fail (a corrupt PDF, a malformed date) without crashing the whole program. `try: ... except: ...` means "attempt this; if it blows up, do something sensible instead of dying."
-
-**Regex (regular expression)** — a pattern-matching syntax for text, more flexible than a plain "does this text contain that text" check. Used here to match a value "as a whole word, allowing any amount of whitespace between words, ignoring capitalization" instead of requiring an exact character-for-character match.
-
----
-
-## 3. `auditor.py` — the engine
+## 2. `auditor.py` — the engine
 
 This is the file that does all the real work. Nothing in here touches the screen or a window — it's pure logic, which is also why it can be tested and run from a plain terminal command.
 
@@ -167,13 +141,13 @@ For each actual value found, a Match can be reached three ways: an exact-ish mat
 
 ### `derive_base_key(stem)`
 
-**What it does:** This is what makes "batch mode" possible. PDF/JSON pairs from the source system share a common filename but each has its own 13-character system-generated code tacked onto the end (e.g. `..._W2IWIZ2W_DBS.pdf` and `..._W2IWIZ9C_4US.json`) — so the filenames are *almost* identical but not quite. This function strips that trailing code off so both files reduce to the same "base name," which is then used to pair them up. If a filename is too short to safely strip 13 characters from, it prints a warning and just uses the whole name as-is rather than mangling it.
+**What it does:** Provides a legacy compatibility helper for file-name normalization when the source system appends a generated suffix to the base document name. In the current architecture, filename matching is intentionally not the primary pairing strategy; model detection is handled by the profile system, and the process is more robust when it looks at document structure and content instead of a hard-coded suffix length.
 
-**Parameter:** `stem` — a filename without its extension (e.g. `report_ABC123` from `report_ABC123.pdf`).
+**Parameter:** `stem` — a filename without its extension.
 
-**Returns:** The base name used for pairing (a string).
+**Returns:** The normalized base name used for compatibility with older folder layouts.
 
-**Used by:** `audit_directory_recursively`, once per file found.
+**Used by:** `audit_directory_recursively`, once per file found, as a fallback layer rather than the main pairing mechanism.
 
 ---
 
@@ -181,9 +155,9 @@ For each actual value found, a Match can be reached three ways: an exact-ish mat
 
 **What it does:** This is the one function everything else in the file exists to support, and the only one called from outside `auditor.py` (both the command-line entry point and the GUI call this directly). Step by step:
 
-1. Walks every file inside `root_dir`, including subfolders, and sorts every `.pdf` and `.json` file it finds into two lookup tables, keyed by their "base name" (via `derive_base_key`). If two different files reduce to the same base name, it prints a warning and keeps only the first one found — rather than silently overwriting or dropping data without telling you.
-2. Finds the file names that exist in *both* tables — i.e. the actual pairs.
-3. For each pair: extracts the PDF's text (`extract_pdf_text`), loads the JSON, runs the comparison (`compare_json_with_pdf`), and prints a one-line progress summary.
+1. Walks every file inside `root_dir`, including subfolders, and identifies every `.pdf` and `.json` file it finds.
+2. Uses the profile system to detect the document model, then keeps the model-specific comparison logic in the matching profile instead of hard-coding filename assumptions.
+3. For each recognized pair: extracts the PDF's text (`extract_pdf_text`), loads the JSON, runs the comparison (`compare_json_with_pdf`), and prints a one-line progress summary.
 4. Once every pair has been processed, generates the final report (`generate_markdown_report`).
 
 **Parameters:** `root_dir` (the folder to search for PDF/JSON pairs) and `reports_dir` (where to save the generated report).
@@ -194,7 +168,7 @@ For each actual value found, a Match can be reached three ways: an exact-ish mat
 
 ---
 
-## 4. `auditor_gui.py` — the window
+## 3. `auditor_gui.py` — the window
 
 This file adds a clickable window around `auditor.py`. It deliberately contains no comparison logic of its own — its only job is to collect a folder from you, hand it to `audit_directory_recursively`, and show you what comes back.
 
@@ -231,7 +205,7 @@ This is the main class — the whole visible application. A few of its methods w
 
 ---
 
-## 5. `setup.py` — the build recipe (not run by the app)
+## 4. `setup.py` — the build recipe (not run by the app)
 
 This file is never executed while you're using the tool — it's a one-time (or once-per-change) recipe you run yourself, from a terminal, to turn the Python source files into the standalone double-clickable `JSON-PDF Compare Tool.app`. It uses a packaging tool called `py2app`.
 
@@ -245,7 +219,7 @@ Running `python setup.py py2app` (see `buildApp.md` for the exact steps) reads t
 
 ---
 
-## 6. Quick reference: the three outcomes
+## 5. Quick reference: the three outcomes
 
 | Outcome | Icon | Meaning | What it tells you |
 | :--- | :---: | :--- | :--- |
