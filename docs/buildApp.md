@@ -23,8 +23,7 @@ venv on Python 3.11 or 3.12 instead and retry.
 ```bash
 cd json_pdf_compare_tool
 source venv/bin/activate
-pip install -r requirements.txt
-pip install py2app
+python -m pip install -e ".[build]"
 ```
 
 ## 3. Build
