@@ -485,8 +485,8 @@ def generate_markdown_report(results, reports_dir):
                 "strongest signal of a genuine data problem.\n"
             )
             for path, val in r["mismatches"]:
-                md.append(f"* **JSON Path:** `{path}`")
-                md.append(f"  * **Expected Value (JSON):** `{val}`")
+                md.append(f"* ❌ **JSON Path:** <mark>`{path}`</mark>")
+                md.append(f"  * **Expected Value (JSON):** <mark>`{val}`</mark>")
                 action = "Check if this value appears in a different format, is truncated, or if pages are missing from the PDF."
                 if len(val) <= SHORT_CODE_HINT_LENGTH:
                     action += (
@@ -509,8 +509,8 @@ def generate_markdown_report(results, reports_dir):
                 "manual look rather than treating it as either pass or fail.\n"
             )
             for path, val in r["unverifiable"]:
-                md.append(f"* **JSON Path:** `{path}`")
-                md.append(f"  * **Expected Value (JSON):** `{val}`")
+                md.append(f"* 🟡 **JSON Path:** <mark>`{path}`</mark>")
+                md.append(f"  * **Expected Value (JSON):** <mark>`{val}`</mark>")
                 md.append("  * *Action:* Manually confirm whether this fact is stated (even implicitly) in the PDF.\n")
 
         if not r["mismatches"] and not r["unverifiable"]:
