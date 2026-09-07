@@ -15,7 +15,7 @@ _PROPERTY_SITUATION_RE = re.compile(
 )
 
 
-class AeatModelo100Profile(DocumentProfile):
+class EsAeatModelo100Profile(DocumentProfile):
     name = "aeat_modelo_100"
 
     def detect(self, pdf_text, json_data):

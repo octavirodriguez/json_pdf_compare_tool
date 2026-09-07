@@ -14,7 +14,7 @@ _ZERO_FIELD_PATTERNS = (
 _EURO_ZERO_RE = re.compile(r"(?<!\d)0\s*€")
 
 
-class UrssafAutoentrepreneurProfile(DocumentProfile):
+class FrUrssafAutoentrepreneurProfile(DocumentProfile):
     name = "urssaf_autoentrepreneur"
 
     def detect(self, pdf_text, json_data):
