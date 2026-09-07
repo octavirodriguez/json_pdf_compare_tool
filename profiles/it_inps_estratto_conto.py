@@ -3,7 +3,7 @@
 from .base import DocumentProfile
 
 
-class InpsProfile(DocumentProfile):
+class ItInpsEstrattoContoProfile(DocumentProfile):
     name = "inps"
 
     def detect(self, pdf_text, json_data):

@@ -3,7 +3,7 @@
 from .base import DocumentProfile
 
 
-class AnprProfile(DocumentProfile):
+class ItAnprCertificatoProfile(DocumentProfile):
     name = "anpr"
 
     def detect(self, pdf_text, json_data):

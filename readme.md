@@ -126,7 +126,13 @@ json_pdf_compare_tool/
 ├── rename_json_to_pdf.py # Optional macOS Folder Action helper
 ├── profiles/           # Model-specific audit rules
 │   ├── base.py         # Profile interface
-│   └── urssaf_autoentrepreneur.py # URSSAF rules
+│   ├── es_aeat_modelo_100.py
+│   ├── es_ss_vida_laboral.py
+│   ├── fr_urssaf_autoentrepreneur.py
+│   ├── it_agenzia_entrate_certificazione_unica.py
+│   ├── it_agenzia_entrate_ricevuta.py
+│   ├── it_anpr_certificato.py
+│   └── it_inps_estratto_conto.py
 ├── docs/               # Usage and maintainer documentation
 │   ├── HOW_IT_WORKS.md
 │   ├── buildApp.md

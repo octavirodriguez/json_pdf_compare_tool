@@ -1,0 +1,44 @@
+"""Rules for Spanish Seguridad Social Vida Laboral reports."""
+
+import re
+
+from .base import DocumentProfile
+
+
+_TABLE_VALUE_LINE_RE = re.compile(
+    r"^.*?\d{2}\.\d{2}\.\d{4}\s+"
+    r"\d{2}\.\d{2}\.\d{4}\s+"
+    r"(?:\d{2}\.\d{2}\.\d{4}|---)\s+"
+    r"(?:---|\d{3})\s+"
+    r"(?:---|\d{1,2},\d)\s+"
+    r"(?P<group>\d{2}|--)\s+"
+    r"(?P<days>\d+(?:[.,]\d+)?)\s*$",
+    re.MULTILINE,
+)
+
+
+class EsSsVidaLaboralProfile(DocumentProfile):
+    name = "seguridad_social_vida_laboral"
+
+    def detect(self, pdf_text, json_data):
+        normalized_text = pdf_text.casefold()
+        return (
+            "informe de vida laboral" in normalized_text
+            and "tesorería general de la seguridad social" in normalized_text
+            and "informe de vida laboral - situaciones" in normalized_text
+        )
+
+    def confident_short_value_hit(self, pdf_text, path, value_str):
+        if not value_str.isdigit() or len(value_str) >= 3:
+            return False
+
+        table_values = [
+            match.groupdict()
+            for match in _TABLE_VALUE_LINE_RE.finditer(pdf_text)
+        ]
+        path_lower = path.casefold()
+        if any(token in path_lower for token in ("grupo", "cotizacion", "cotización")):
+            return any(values["group"] == value_str for values in table_values)
+        if "dia" in path_lower or "día" in path_lower:
+            return any(values["days"] == value_str for values in table_values)
+        return False

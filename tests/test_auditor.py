@@ -351,6 +351,42 @@ class TestCompareJsonWithPdf:
         assert profile is not None
         assert profile.name == "inps"
 
+    def test_detects_seguridad_social_vida_laboral_profile(self):
+        pdf = (
+            "INFORME DE VIDA LABORAL\n"
+            "Tesorería General de la Seguridad Social\n"
+            "INFORME DE VIDA LABORAL - SITUACIONES\n"
+            "  01.09.2025      01.09.2025       31.08.2025     401     ---    01        1\n"
+        )
+        profile = detect_profile(pdf, {})
+        assert profile is not None
+        assert profile.name == "seguridad_social_vida_laboral"
+
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"situaciones": [{"grupoCotizacion": "01", "dias": "1"}]},
+            pdf,
+            profile=profile,
+        )
+        assert ("situaciones[0].grupoCotizacion", "01") in matches
+        assert ("situaciones[0].dias", "1") in matches
+        assert not mismatches
+        assert not unverifiable
+
+    def test_vida_laboral_unrelated_short_code_remains_unverifiable(self):
+        pdf = (
+            "INFORME DE VIDA LABORAL\n"
+            "Tesorería General de la Seguridad Social\n"
+            "INFORME DE VIDA LABORAL - SITUACIONES\n"
+            "  01.09.2025      01.09.2025       31.08.2025     401     ---    01        1\n"
+        )
+        profile = detect_profile(pdf, {})
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"codigoInterno": "1"}, pdf, profile=profile
+        )
+        assert not matches
+        assert not mismatches
+        assert unverifiable == [("codigoInterno", "1")]
+
     def test_detects_ricevuta_agenzia_profile(self):
         pdf = (
             "COMUNICAZIONE DI AVVENUTO RICEVIMENTO\n"

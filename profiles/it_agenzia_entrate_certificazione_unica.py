@@ -3,7 +3,7 @@
 from .base import DocumentProfile
 
 
-class AgenziaEntrateCertificazioneUnicaProfile(DocumentProfile):
+class ItAgenziaEntrateCertificazioneUnicaProfile(DocumentProfile):
     name = "agenzia_entrate_certificazione_unica"
 
     def detect(self, pdf_text, json_data):
