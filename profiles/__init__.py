@@ -9,6 +9,7 @@ from .urssaf_autoentrepreneur import UrssafAutoentrepreneurProfile
 
 
 PROFILES = (
+    AeatModelo100Profile(),
     UrssafAutoentrepreneurProfile(),
     AeatModelo100Profile(),
     AnprProfile(),
