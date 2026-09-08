@@ -529,9 +529,9 @@ def generate_markdown_report(results, reports_dir):
 # system-generated suffix tacked on before the extension, e.g.:
 #   ..._W2IWIZ2W_DBS.pdf
 #   ..._W2IWIZ9C_4US.json
-# Stripping this fixed-length suffix from both stems is what lets us pair
-# files by base name instead of requiring identical filenames, which in turn
-# is what allows dropping whole batches of pairs into the data folder at once.
+# Stripping this fixed-length suffix from both stems lets us pair files by base
+# name instead of requiring identical filenames. Unrelated names are handled
+# later using profile detection and matching field content.
 TRAILING_SUFFIX_LENGTH = 13
 
 
@@ -559,6 +559,8 @@ def audit_directory_recursively(root_dir, reports_dir):
         print(f"❌ Directory '{root_dir}' does not exist.")
         return [], None
 
+    pdf_files = []
+    json_files = []
     for file in root_path.rglob("*"):
         if not file.is_file():
             continue
@@ -578,35 +580,107 @@ def audit_directory_recursively(root_dir, reports_dir):
             continue
 
         target_map[base_key] = file
+        (pdf_files if suffix == ".pdf" else json_files).append(file)
 
-    common_names = set(pdf_map.keys()).intersection(set(json_map.keys()))
+    json_data_by_path = {}
+    for json_path in json_files:
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                json_data_by_path[json_path] = json.load(f)
+        except Exception as e:
+            print(f"❌ Error reading JSON {json_path.name}: {e}")
 
-    if not common_names:
+    pairs = []
+    paired_pdfs = set()
+    paired_jsons = set()
+    for name in sorted(set(pdf_map.keys()).intersection(set(json_map.keys()))):
+        pdf_path = pdf_map[name]
+        json_path = json_map[name]
+        if json_path in json_data_by_path:
+            pairs.append((name, pdf_path, json_path, None))
+            paired_pdfs.add(pdf_path)
+            paired_jsons.add(json_path)
+
+    # When filenames are unrelated, use the detected document profile and the
+    # comparison signal to select a unique, evidence-backed candidate.
+    from profiles import detect_profile
+
+    pdf_text_by_path = {}
+    candidates = []
+    for pdf_path in pdf_files:
+        if pdf_path in paired_pdfs:
+            continue
+        pdf_text = extract_pdf_text(pdf_path)
+        pdf_text_by_path[pdf_path] = pdf_text
+        if pdf_text is None:
+            continue
+        for json_path, json_data in json_data_by_path.items():
+            if json_path in paired_jsons:
+                continue
+            profile = detect_profile(pdf_text, json_data)
+            if profile is None:
+                continue
+            matches, mismatches, unverifiable = compare_json_with_pdf(
+                json_data, pdf_text, profile=profile
+            )
+            if matches:
+                candidates.append((
+                    len(matches),
+                    -len(mismatches),
+                    -len(unverifiable),
+                    pdf_path,
+                    json_path,
+                    profile,
+                ))
+
+    for _, _, _, pdf_path, json_path, profile in sorted(
+        candidates, key=lambda candidate: candidate[:3], reverse=True
+    ):
+        if pdf_path in paired_pdfs or json_path in paired_jsons:
+            continue
+        score = next(
+            candidate[:3]
+            for candidate in candidates
+            if candidate[3] == pdf_path and candidate[4] == json_path
+        )
+        equally_good_alternatives = [
+            candidate
+            for candidate in candidates
+            if candidate[:3] == score
+            and (candidate[3] == pdf_path or candidate[4] == json_path)
+        ]
+        if len(equally_good_alternatives) > 1:
+            print(
+                f"⚠️ Ambiguous content-based match for '{pdf_path.name}' and "
+                f"'{json_path.name}'; leaving candidates unpaired."
+            )
+            continue
+        pair_name = f"{pdf_path.stem} + {json_path.stem}"
+        pairs.append((pair_name, pdf_path, json_path, profile))
+        paired_pdfs.add(pdf_path)
+        paired_jsons.add(json_path)
+
+    if not pairs:
         print(f"⚠️ No matching PDF and JSON file pairs found in '{root_dir}'.")
         return [], None
 
-    print(f"\n🔍 Running audit for {len(common_names)} file pairs...\n" + "=" * 60)
+    print(f"\n🔍 Running audit for {len(pairs)} file pairs...\n" + "=" * 60)
 
     results = []
 
-    for name in sorted(common_names):
-        pdf_path = pdf_map[name]
-        json_path = json_map[name]
+    for name, pdf_path, json_path, detected_profile in pairs:
 
-        pdf_text = extract_pdf_text(pdf_path)
+        pdf_text = pdf_text_by_path.get(pdf_path)
+        if pdf_text is None:
+            pdf_text = extract_pdf_text(pdf_path)
         pdf_read_error = pdf_text is None
 
-        try:
-            with open(json_path, "r", encoding="utf-8") as f:
-                json_data = json.load(f)
-        except Exception as e:
-            print(f"❌ Error reading JSON {json_path.name}: {e}")
+        json_data = json_data_by_path.get(json_path)
+        if json_data is None:
             continue
 
-        profile = None
-        if pdf_text is not None:
-            from profiles import detect_profile
-
+        profile = detected_profile
+        if profile is None and pdf_text is not None:
             profile = detect_profile(pdf_text, json_data)
 
         matches, mismatches, unverifiable = compare_json_with_pdf(
