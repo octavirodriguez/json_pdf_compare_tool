@@ -91,7 +91,7 @@ class TestAuditDirectoryRecursively:
         (data / "Doc_Alpha_W2QADYOZ_ZQW.json").write_text("not json", encoding="utf-8")
 
         # Provide a real (minimal) PDF via mocking so extract_pdf_text gets past the read
-        with patch("auditor.extract_pdf_text", return_value="some text"):
+        with patch("auditor_pairing.extract_pdf_text", return_value="some text"):
             # We still need a PDF file to exist so file discovery finds it
             (data / "Doc_Alpha_W2QADYOZ_ZQW.pdf").write_bytes(b"fake")
             results, _ = audit_directory_recursively(str(data), str(reports))
@@ -117,7 +117,7 @@ class TestAuditDirectoryRecursively:
             "Anagrafe Nazionale della Popolazione Residente "
             "Certificato contestuale John Doe"
         )
-        with patch("auditor.extract_pdf_text", return_value=pdf_text):
+        with patch("auditor_pairing.extract_pdf_text", return_value=pdf_text):
             results, report = audit_directory_recursively(str(data), str(reports))
 
         assert report is not None

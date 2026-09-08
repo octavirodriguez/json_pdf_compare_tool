@@ -17,6 +17,11 @@ OPTIONS = {
     "packages": ["pypdf", "customtkinter", "darkdetect", "tkinterdnd2", "profiles"],
     "includes": [
         "auditor",
+        "auditor_comparison",
+        "auditor_pairing",
+        "auditor_pdf",
+        "auditor_reporting",
+        "auditor_text",
         "profiles",
         "profiles.base",
         "profiles.es_aeat_modelo_100",
