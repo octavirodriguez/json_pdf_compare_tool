@@ -3,6 +3,7 @@
 from .es_aeat_modelo_100 import EsAeatModelo100Profile
 from .es_aeat_modelo_303 import EsAeatModelo303Profile
 from .es_aeat_modelo_390 import EsAeatModelo390Profile
+from .es_aeat_datos_fiscales import EsAeatDatosFiscalesProfile
 from .es_ss_bases_cotizacion import EsSsBasesCotizacionProfile
 from .es_ss_vida_laboral import EsSsVidaLaboralProfile
 from .fr_urssaf_autoentrepreneur import FrUrssafAutoentrepreneurProfile
@@ -16,6 +17,7 @@ PROFILES = (
     EsAeatModelo100Profile(),
     EsAeatModelo303Profile(),
     EsAeatModelo390Profile(),
+    EsAeatDatosFiscalesProfile(),
     EsSsBasesCotizacionProfile(),
     EsSsVidaLaboralProfile(),
     FrUrssafAutoentrepreneurProfile(),

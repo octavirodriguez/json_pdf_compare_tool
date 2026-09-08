@@ -68,6 +68,33 @@ class TestDocumentProfiles:
         profile = detect_profile(pdf, {})
         assert profile.name == "aeat_modelo_390_iva_resumen_anual"
 
+    def test_datos_fiscales_matches_name_and_nif(self):
+        pdf = (
+            "Consulta de Datos Fiscales\n"
+            "DATOS IDENTIFICATIVOS\n"
+            "NIF:\n12345678Z\n"
+            "NOMBRE:\nTEST PERSON\n"
+            "DOMICILIO FISCAL\n"
+        )
+        profile = detect_profile(pdf, {})
+        assert profile.name == "aeat_datos_fiscales"
+
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {
+                "informacionPersonal": {
+                    "identificacion": "12345678Z",
+                    "nombre": "TEST PERSON",
+                }
+            },
+            pdf,
+            profile=profile,
+        )
+
+        assert ("informacionPersonal.identificacion", "12345678Z") in matches
+        assert ("informacionPersonal.nombre", "TEST PERSON") in matches
+        assert not mismatches
+        assert not unverifiable
+
     def test_aeat_modelo_303_unanchored_short_code_remains_unverifiable(self):
         pdf = "Agencia Tributaria\nImpuesto sobre el Valor Añadido\nModelo 303 Autoliquidación\nCódigo interno 4T\n"
         profile = detect_profile(pdf, {})
