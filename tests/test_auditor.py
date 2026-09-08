@@ -405,6 +405,17 @@ class TestCompareJsonWithPdf:
         assert not mismatches
         assert not unverifiable
 
+    def test_detects_seguridad_social_bases_cotizacion_profile(self):
+        pdf = (
+            "INFORME INTEGRAL DE BASES DE COTI\n"
+            "ZACIÓN\n"
+            "Régimen: GENERAL\n"
+            "Enero Febrero Marzo\n"
+        )
+        profile = detect_profile(pdf, {})
+        assert profile is not None
+        assert profile.name == "seguridad_social_bases_cotizacion"
+
     def test_vida_laboral_unrelated_short_code_remains_unverifiable(self):
         pdf = (
             "INFORME DE VIDA LABORAL\n"
