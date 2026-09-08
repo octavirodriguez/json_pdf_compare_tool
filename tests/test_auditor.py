@@ -658,6 +658,32 @@ class TestAuditDirectoryRecursively:
         assert results == []
         assert "Error reading JSON" in capsys.readouterr().out
 
+    def test_unrelated_filenames_are_paired_using_profile_and_content(
+        self, tmp_path
+    ):
+        data = tmp_path / "data"
+        data.mkdir()
+        reports = tmp_path / "reports"
+        reports.mkdir()
+        pdf_path = data / "official-certificate.pdf"
+        json_path = data / "export-from-provider.json"
+        pdf_path.write_bytes(b"fake")
+        json_path.write_text(
+            json.dumps({"person": {"name": "John Doe"}}), encoding="utf-8"
+        )
+
+        pdf_text = (
+            "Anagrafe Nazionale della Popolazione Residente "
+            "Certificato contestuale John Doe"
+        )
+        with patch("auditor.extract_pdf_text", return_value=pdf_text):
+            results, report = audit_directory_recursively(str(data), str(reports))
+
+        assert report is not None
+        assert len(results) == 1
+        assert results[0]["name"] == "official-certificate + export-from-provider"
+        assert results[0]["matches"] == [("person.name", "John Doe")]
+
 
 # ---------------------------------------------------------------------------
 # generate_markdown_report — highlighting and formatting

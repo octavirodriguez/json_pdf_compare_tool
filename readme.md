@@ -68,6 +68,11 @@ filenames are unrelated.
 
    > ⚠️ `./data` is git-ignored on purpose, since these are typically real fiscal/personal documents. Never remove `data/` from `.gitignore` or force-add files from it.
 
+   Filenames may differ: the auditor first pairs files by their normalized base
+   name, then uses document profiles and verified field matches to pair
+   otherwise unrelated PDF and JSON names. Ambiguous or unsupported candidates
+   are left unpaired rather than guessed.
+
 2. Run the audit script:
    ````Bash
    python auditor.py
