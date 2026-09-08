@@ -339,6 +339,17 @@ class TestCompareJsonWithPdf:
         assert not mismatches
         assert not unverifiable
 
+    def test_detects_aeat_modelo_390_profile(self):
+        pdf = (
+            "Agencia Tributaria\n"
+            "Impuesto sobre el Valor Añadido\n"
+            "Modelo 390\n"
+            "Declaración-Resumen anual\n"
+        )
+        profile = detect_profile(pdf, {})
+        assert profile is not None
+        assert profile.name == "aeat_modelo_390_iva_resumen_anual"
+
     def test_aeat_modelo_303_unanchored_short_code_remains_unverifiable(self):
         pdf = (
             "Agencia Tributaria\n"
