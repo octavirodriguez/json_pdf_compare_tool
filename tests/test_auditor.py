@@ -442,6 +442,50 @@ class TestCompareJsonWithPdf:
         assert not mismatches
         assert unverifiable == [("codigoInterno", "1")]
 
+    def test_vida_laboral_reconciles_visible_fields(self):
+        pdf = (
+            "INFORME DE VIDA LABORAL\n"
+            "Tesorería General de la Seguridad Social\n"
+            "INFORME DE VIDA LABORAL - SITUACIONES\n"
+            "nacido/a el 6 de octubre de 1981\n"
+            "D.N.I. 04715345G\n"
+            "22 Años 8.308 días 9 meses 0 días\n"
+        )
+        profile = detect_profile(pdf, {})
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {
+                "informacionPersonal": {
+                    "fechaNacimiento": "1981-10-06",
+                    "identificacion": "04715345G",
+                },
+                "resumen": {
+                    "periodoAlta": {"anos": "22", "meses": "9", "dias": "8308"},
+                },
+            },
+            pdf,
+            profile=profile,
+        )
+        assert ("informacionPersonal.fechaNacimiento", "1981-10-06") in matches
+        assert not mismatches
+        assert not unverifiable
+
+    def test_vida_laboral_matches_identification_when_present(self):
+        pdf = (
+            "INFORME DE VIDA LABORAL\n"
+            "Tesorería General de la Seguridad Social\n"
+            "INFORME DE VIDA LABORAL - SITUACIONES\n"
+            "Identificación: Y3475110P\n"
+        )
+        profile = detect_profile(pdf, {})
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"informacionPersonal": {"identificacion": "Y3475110P"}},
+            pdf,
+            profile=profile,
+        )
+        assert ("informacionPersonal.identificacion", "Y3475110P") in matches
+        assert not mismatches
+        assert not unverifiable
+
     def test_detects_ricevuta_agenzia_profile(self):
         pdf = (
             "COMUNICAZIONE DI AVVENUTO RICEVIMENTO\n"

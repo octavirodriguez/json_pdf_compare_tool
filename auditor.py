@@ -303,6 +303,10 @@ def compare_json_with_pdf(json_data, pdf_text, profile=None):
             variants.append(date_obj.strftime("%d/%m/%Y"))
             variants.append(date_obj.strftime("%d-%m-%Y"))
             variants.append(date_obj.strftime("%d.%m.%Y"))
+            variants.append(
+                f"{date_obj.day} de {_SPANISH_MONTHS[date_obj.month]} de {date_obj.year}"
+            )
+            variants.append(f"{date_obj.day} {_SPANISH_MONTHS[date_obj.month]} {date_obj.year}")
             # Grid-style official forms ("giorno mese anno") often print each
             # date component as its own boxed value with nothing but
             # whitespace between them -- no slash or dash at all, e.g.
@@ -367,6 +371,9 @@ def compare_json_with_pdf(json_data, pdf_text, profile=None):
             if value_str.lower() in ["true", "false"]:
                 return
 
+            if profile and profile.should_skip_field(path):
+                return
+
             if _should_skip_low_signal_short_value(path, value_str):
                 return
 
@@ -398,6 +405,8 @@ def compare_json_with_pdf(json_data, pdf_text, profile=None):
             ):
                 matches.append((path, value_str))
             elif _loose_trace_present(pdf_text_lower, variants):
+                unverifiable.append((path, value_str))
+            elif profile and profile.should_mark_unverifiable_if_absent(path):
                 unverifiable.append((path, value_str))
             else:
                 mismatches.append((path, value_str))
