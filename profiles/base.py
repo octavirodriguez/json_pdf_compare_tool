@@ -13,3 +13,11 @@ class DocumentProfile:
     def confident_short_value_hit(self, pdf_text, path, value_str):
         """Return whether a short value is confidently represented in the PDF."""
         return False
+
+    def should_skip_field(self, path):
+        """Return whether this document does not expose the field for comparison."""
+        return False
+
+    def should_mark_unverifiable_if_absent(self, path):
+        """Return whether an absent field should be reported as unverifiable."""
+        return False
