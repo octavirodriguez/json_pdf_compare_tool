@@ -1,7 +1,8 @@
 # Building the standalone macOS app
 
-`auditor_gui.py` is a small desktop wrapper around `auditor.py`'s audit
-engine, built with `customtkinter`. This guide packages it into a
+`auditor_gui.py` is a small desktop wrapper around the audit engine exposed by
+`auditor.py`, built with `customtkinter`. The facade delegates to focused
+modules for pairing, comparison, PDF extraction, and reporting. This guide packages it into a
 standalone `JSON-PDF-Compare-Tool.app` using [py2app](https://py2app.readthedocs.io/),
 so anyone can run it on a Mac **without installing Python**.
 
@@ -61,8 +62,8 @@ double-click the `.app` in Finder directly. Confirm:
 * "Open Report" and "Reveal Reports Folder" both work.
 
 If something fails only in the bundled app (not when running
-`python auditor_gui.py` directly), it's usually a missing package —
-add it to the `packages` list in `setup.py` and rebuild.
+`python auditor_gui.py` directly), it is usually a missing package or module —
+add it to the appropriate `packages`/`includes` list in `setup.py` and rebuild.
 
 ## 5. Package for distribution
 

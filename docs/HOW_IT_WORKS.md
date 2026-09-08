@@ -8,19 +8,29 @@ A plain-language walkthrough of every file and function in the codebase — what
 
 You pick a folder full of PDF/JSON pairs. The tool figures out which PDF goes with which JSON (even if their filenames aren't identical), pulls the plain text out of each PDF, and then checks every single value inside the JSON to see if it can find that same value somewhere in the PDF's text — tolerating things like different date formats, different capitalization, and text that wraps across lines. Every JSON value ends up bucketed into one of three outcomes (Matched / Unverifiable / Discrepancy), and finally everything gets written out into one readable Markdown report.
 
-There are three files involved, each with a distinct job:
+The runtime is split by responsibility, with `auditor.py` kept as a small
+public facade so existing scripts and the GUI can continue to use the same API:
 
 | File | Job |
 | :--- | :--- |
-| `auditor.py` | The actual engine: finds file pairs, reads PDFs, compares values, writes the report. Has zero UI code — it can run entirely from a terminal. |
+| `auditor.py` | Public facade and CLI entry point. Re-exports the audit API and runs the CLI when invoked directly. |
+| `auditor_pairing.py` | Finds PDF/JSON pairs, orchestrates profile detection and comparison, and collects results. |
+| `auditor_comparison.py` | Recursively compares JSON values against extracted PDF text. |
+| `auditor_text.py` | Text normalization, matching, and value-variant helpers. |
+| `auditor_pdf.py` | Extracts plain text from PDF files. |
+| `auditor_reporting.py` | Generates Markdown audit reports. |
 | `auditor_gui.py` | A window (built with a library called `customtkinter`) that lets you click buttons instead of typing commands. It doesn't do any comparing itself — it just calls into `auditor.py` and displays what happens. |
 | `setup.py` | Not run by the app itself — it's a build recipe used once, by you, to package everything into the standalone double-clickable `.app`. |
 
 ---
 
-## 2. `auditor.py` — the engine
+## 2. `auditor.py` — the public facade
 
-This is the file that does all the real work. Nothing in here touches the screen or a window — it's pure logic, which is also why it can be tested and run from a plain terminal command.
+This is the stable public entry point. It contains no UI code and keeps the
+command-line behavior unchanged, but delegates the implementation to the
+focused modules listed above. The GUI and external scripts can continue to
+use `auditor.audit_directory_recursively(...)` without knowing how the engine
+is organized internally.
 
 ### `extract_pdf_text(pdf_path)`
 
@@ -30,7 +40,8 @@ This is the file that does all the real work. Nothing in here touches the screen
 
 **Returns:** A single string containing all the text found in the PDF. If the PDF can't be read for any reason (corrupted file, unsupported format, etc.), it prints an error and returns an empty string instead of crashing the program.
 
-**Used by:** `audit_directory_recursively`, once per PDF, right before that PDF's paired JSON gets compared against it.
+**Defined in:** `auditor_pdf.py`. Used by `auditor_pairing.py`, once per PDF,
+right before that PDF's paired JSON gets compared against it.
 
 ---
 

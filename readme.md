@@ -125,8 +125,13 @@ json_pdf_compare_tool/
 ├── data/              # Input directory for PDF/JSON pairs (git-ignored — may hold real personal data)
 ├── reports/           # Generated Markdown audit reports (git-ignored)
 ├── venv/              # Python virtual environment (git-ignored)
-├── tests/             # pytest unit tests
-├── auditor.py         # Core auditing engine
+├── tests/             # pytest unit tests, split by responsibility
+├── auditor.py         # Public CLI/API facade for the audit engine
+├── auditor_comparison.py # JSON/PDF comparison
+├── auditor_pairing.py # File discovery, pairing, and audit orchestration
+├── auditor_pdf.py     # PDF text extraction
+├── auditor_reporting.py # Markdown report generation
+├── auditor_text.py    # Text matching and normalization helpers
 ├── auditor_gui.py     # customtkinter desktop GUI, built on auditor.py
 ├── rename_json_to_pdf.py # Optional macOS Folder Action helper
 ├── profiles/           # Model-specific audit rules
