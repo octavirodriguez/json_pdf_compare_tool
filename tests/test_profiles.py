@@ -169,3 +169,17 @@ class TestDocumentProfiles:
         )
         assert ("informacionPersonal.identificacion", "Y3475110P") in matches
         assert not mismatches and not unverifiable
+
+    def test_vida_laboral_identification_ignores_leading_zero(self):
+        pdf = (
+            "INFORME DE VIDA LABORAL\nTesorería General de la Seguridad Social\n"
+            "INFORME DE VIDA LABORAL - SITUACIONES\nD.N.I. 050894813E\n"
+        )
+        profile = detect_profile(pdf, {})
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"informacionPersonal": {"identificacion": "50894813E"}},
+            pdf,
+            profile=profile,
+        )
+        assert ("informacionPersonal.identificacion", "50894813E") in matches
+        assert not mismatches and not unverifiable

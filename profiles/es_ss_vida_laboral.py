@@ -35,6 +35,13 @@ class EsSsVidaLaboralProfile(DocumentProfile):
         )
 
     def confident_short_value_hit(self, pdf_text, path, value_str):
+        if path.casefold() == "informacionpersonal.identificacion":
+            padded_value_pattern = re.compile(
+                rf"(?<![A-Za-z0-9])0*{re.escape(value_str)}(?![A-Za-z0-9])",
+                re.IGNORECASE,
+            )
+            return bool(padded_value_pattern.search(pdf_text))
+
         if not value_str.isdigit() or len(value_str) >= 3:
             return False
 
