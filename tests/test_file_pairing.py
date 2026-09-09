@@ -125,4 +125,31 @@ class TestAuditDirectoryRecursively:
         assert results[0]["name"] == "official-certificate + export-from-provider"
         assert results[0]["matches"] == [("person.name", "John Doe")]
 
+    def test_unrelated_filenames_are_paired_for_aeat_modelo_130(
+        self, tmp_path
+    ):
+        data = tmp_path / "data"
+        data.mkdir()
+        reports = tmp_path / "reports"
+        reports.mkdir()
+        (data / "official-return.pdf").write_bytes(b"fake")
+        (data / "provider-export.json").write_text(
+            json.dumps({"declaracion": {"estadoCivil": "1"}}),
+            encoding="utf-8",
+        )
+
+        pdf_text = (
+            "Agencia Tributaria Modelo 130\n"
+            "INFORMACIÓN DE LA PRESENTACIÓN DE LA DECLARACIÓN\n"
+            "NIF Presentador: 12345678Z\n"
+            "Apellidos y Nombre: TEST PERSON\n"
+            "Estado civil (1) Soltero/a\n"
+        )
+        with patch("auditor_pairing.extract_pdf_text", return_value=pdf_text):
+            results, report = audit_directory_recursively(str(data), str(reports))
+
+        assert report is not None
+        assert len(results) == 1
+        assert results[0]["matches"] == [("declaracion.estadoCivil", "1")]
+
 

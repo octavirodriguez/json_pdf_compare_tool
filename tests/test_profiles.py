@@ -53,6 +53,58 @@ class TestDocumentProfiles:
         assert not matches and not mismatches
         assert unverifiable == [("codigo", "1")]
 
+    def test_aeat_modelo_130_profile_matches_anchored_short_codes(self):
+        pdf = (
+            "Agencia Tributaria Modelo 130\n"
+            "INFORMACIÓN DE LA PRESENTACIÓN DE LA DECLARACIÓN\n"
+            "NIF Presentador: 12345678Z\n"
+            "Apellidos y Nombre: TEST PERSON\n"
+            "Estado civil (1) Soltero/a\n"
+            "Situación. 2 0065\n"
+        )
+        profile = detect_profile(pdf, {})
+        assert profile.name == "aeat_modelo_130"
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"estadoCivil": "1", "inmuebles": [{"situacion": "2"}]},
+            pdf,
+            profile=profile,
+        )
+        assert ("estadoCivil", "1") in matches
+        assert ("inmuebles[0].situacion", "2") in matches
+        assert not mismatches and not unverifiable
+
+    def test_aeat_modelo_130_unanchored_short_code_remains_unverifiable(self):
+        pdf = (
+            "Agencia Tributaria Modelo 130\n"
+            "INFORMACIÓN DE LA PRESENTACIÓN DE LA DECLARACIÓN\n"
+            "NIF Presentador: 12345678Z\n"
+            "Apellidos y Nombre: TEST PERSON\n"
+            "Código interno: 1\n"
+        )
+        profile = detect_profile(pdf, {})
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"codigo": "1"}, pdf, profile=profile
+        )
+        assert not matches and not mismatches
+        assert unverifiable == [("codigo", "1")]
+
+    def test_aeat_modelo_130_profile_matches_period(self):
+        pdf = (
+            "Modelo 130\n"
+            "INFORMACIÓN DE LA PRESENTACIÓN DE LA DECLARACIÓN\n"
+            "NIF Presentador: 47055169K\n"
+            "Apellidos y Nombre: MARTINEZ-ACACIO BARNUEVO MANUEL\n"
+            "Ejercicio 2026 Período 1T\n"
+        )
+        profile = detect_profile(pdf, {})
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            {"datosDevengo": {"ejercicio": "2026", "periodo": "1T"}},
+            pdf,
+            profile=profile,
+        )
+        assert ("datosDevengo.periodo", "1T") in matches
+        assert not mismatches and not unverifiable
+
     def test_aeat_modelo_303_profile_matches_period(self):
         pdf = "Agencia Tributaria\nImpuesto sobre el Valor Añadido\nModelo 303 Autoliquidación\nEjercicio 2025 Período 4T\n"
         profile = detect_profile(pdf, {})
