@@ -1,6 +1,7 @@
 """Document-model profiles for model-specific audit rules."""
 
 from .es_aeat_modelo_100 import EsAeatModelo100Profile
+from .es_aeat_modelo_130 import EsAeatModelo130Profile
 from .es_aeat_modelo_303 import EsAeatModelo303Profile
 from .es_aeat_modelo_390 import EsAeatModelo390Profile
 from .es_aeat_datos_fiscales import EsAeatDatosFiscalesProfile
@@ -15,6 +16,7 @@ from .it_inps_estratto_conto import ItInpsEstrattoContoProfile
 
 PROFILES = (
     EsAeatModelo100Profile(),
+    EsAeatModelo130Profile(),
     EsAeatModelo303Profile(),
     EsAeatModelo390Profile(),
     EsAeatDatosFiscalesProfile(),
