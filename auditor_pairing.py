@@ -1,4 +1,6 @@
+from bisect import bisect_right
 import json
+import re
 from pathlib import Path
 
 from auditor_comparison import compare_json_with_pdf
@@ -8,6 +10,61 @@ from profiles import detect_profile
 
 
 TRAILING_SUFFIX_LENGTH = 13
+_GENERATED_SUFFIX_RE = re.compile(r"_[A-Z0-9]{8}_[A-Z0-9]{3}$", re.IGNORECASE)
+
+
+def _json_value_lines(source):
+    """Return the source line for each leaf value, keyed by its JSON path."""
+    decoder = json.JSONDecoder()
+    line_starts = [0] + [
+        index + 1 for index, character in enumerate(source) if character == "\n"
+    ]
+    position = [0]
+    value_lines = {}
+
+    def skip_whitespace():
+        while position[0] < len(source) and source[position[0]].isspace():
+            position[0] += 1
+
+    def parse_value(path):
+        skip_whitespace()
+        if source[position[0]] == "{":
+            position[0] += 1
+            skip_whitespace()
+            while source[position[0]] != "}":
+                key, position[0] = decoder.raw_decode(source, position[0])
+                skip_whitespace()
+                position[0] += 1  # colon
+                child_path = f"{path}.{key}" if path else key
+                parse_value(child_path)
+                skip_whitespace()
+                if source[position[0]] == ",":
+                    position[0] += 1
+                    skip_whitespace()
+                else:
+                    break
+            position[0] += 1  # closing brace
+        elif source[position[0]] == "[":
+            position[0] += 1
+            skip_whitespace()
+            index = 0
+            while source[position[0]] != "]":
+                parse_value(f"{path}[{index}]")
+                index += 1
+                skip_whitespace()
+                if source[position[0]] == ",":
+                    position[0] += 1
+                    skip_whitespace()
+                else:
+                    break
+            position[0] += 1  # closing bracket
+        else:
+            if path:
+                value_lines[path] = bisect_right(line_starts, position[0])
+            _, position[0] = decoder.raw_decode(source, position[0])
+
+    parse_value("")
+    return value_lines
 
 
 def derive_base_key(stem):
@@ -21,7 +78,9 @@ def derive_base_key(stem):
             "suffix from; using it as-is as the pairing key."
         )
         return stem
-    return stem[:-TRAILING_SUFFIX_LENGTH]
+    if _GENERATED_SUFFIX_RE.search(stem):
+        return stem[:-TRAILING_SUFFIX_LENGTH]
+    return stem
 
 
 def audit_directory_recursively(root_dir, reports_dir):
@@ -58,10 +117,18 @@ def audit_directory_recursively(root_dir, reports_dir):
         (pdf_files if suffix == ".pdf" else json_files).append(file)
 
     json_data_by_path = {}
+    json_value_lines_by_path = {}
     for json_path in json_files:
         try:
             with open(json_path, "r", encoding="utf-8") as f:
-                json_data_by_path[json_path] = json.load(f)
+                json_source = f.read()
+            json_data = json.loads(json_source)
+            json_data_by_path[json_path] = json_data
+            # Minified files are a single line, so report lines against the
+            # formatted view an editor shows when the JSON is unfolded.
+            if "\n" not in json_source.strip():
+                json_source = json.dumps(json_data, indent=4, ensure_ascii=False)
+            json_value_lines_by_path[json_path] = _json_value_lines(json_source)
         except Exception as e:
             print(f"❌ Error reading JSON {json_path.name}: {e}")
 
@@ -79,6 +146,17 @@ def audit_directory_recursively(root_dir, reports_dir):
     # When filenames are unrelated, use the detected document profile and the
     # comparison signal to select a unique, evidence-backed candidate.
     pdf_text_by_path = {}
+    pdf_layout_text_by_path = {}
+
+    def get_pdf_layout_text(pdf_path, profile):
+        if profile is None or profile.name != "agenzia_entrate_modello_730":
+            return None
+        if pdf_path not in pdf_layout_text_by_path:
+            pdf_layout_text_by_path[pdf_path] = extract_pdf_text(
+                pdf_path, extraction_mode="layout"
+            )
+        return pdf_layout_text_by_path[pdf_path]
+
     candidates = []
     for pdf_path in pdf_files:
         if pdf_path in paired_pdfs:
@@ -94,7 +172,10 @@ def audit_directory_recursively(root_dir, reports_dir):
             if profile is None:
                 continue
             matches, mismatches, unverifiable = compare_json_with_pdf(
-                json_data, pdf_text, profile=profile
+                json_data,
+                pdf_text,
+                profile=profile,
+                pdf_layout_text=get_pdf_layout_text(pdf_path, profile),
             )
             if matches:
                 candidates.append((
@@ -157,7 +238,10 @@ def audit_directory_recursively(root_dir, reports_dir):
             profile = detect_profile(pdf_text, json_data)
 
         matches, mismatches, unverifiable = compare_json_with_pdf(
-            json_data, pdf_text or "", profile=profile
+            json_data,
+            pdf_text or "",
+            profile=profile,
+            pdf_layout_text=get_pdf_layout_text(pdf_path, profile),
         )
 
         results.append({
@@ -165,7 +249,9 @@ def audit_directory_recursively(root_dir, reports_dir):
             "pdf_read_error": pdf_read_error,
             "matches": matches,
             "mismatches": mismatches,
-            "unverifiable": unverifiable
+            "unverifiable": unverifiable,
+            "json_source": json_path.name,
+            "json_value_lines": json_value_lines_by_path[json_path],
         })
 
         print(

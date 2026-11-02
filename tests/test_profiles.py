@@ -170,6 +170,106 @@ class TestDocumentProfiles:
         )
         assert profile.name == "agenzia_entrate_certificazione_unica"
 
+    def test_modello_730_skips_structural_labels_but_compares_values(self):
+        pdf = "Agenzia delle Entrate Modello 730"
+        data = {
+            "prospettoLiquidazione730_3": {
+                "quadros": [
+                    {
+                        "name": "Riepilogo della liquidazione",
+                        "ref": "730-3",
+                        "value": [{"value": "1234,56"}],
+                    }
+                ]
+            },
+            "quadros": [
+                {
+                    "name": "Credito d'imposta per l'abitazione principale",
+                    "ref": "RIFERIMENTO-2024",
+                    "value": [{"value": "9999,00"}],
+                }
+            ],
+        }
+
+        profile = detect_profile(pdf, data)
+        assert profile.name == "agenzia_entrate_modello_730"
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            data, pdf, profile=profile
+        )
+
+        assert not matches
+        assert mismatches == [
+            ("prospettoLiquidazione730_3.quadros[0].value[0].value", "1234,56"),
+            ("quadros[0].value[0].value", "9999,00"),
+        ]
+        assert unverifiable == []
+
+    def test_modello_730_confirms_zero_cent_amount_on_its_referenced_row(self):
+        pdf = "Agenzia delle Entrate Modello 730"
+        row_name = "Acconto addizionale comunale IRPEF 2025"
+        data = {
+            "prospettoLiquidazione730_3": {
+                "quadros": [
+                    {
+                        "name": row_name,
+                        "ref": "78",
+                        "value": [
+                            {"name": "DICHIARANTE", "ref": "1", "value": "60.00"},
+                            {"name": "CONIUGE", "ref": "2", "value": None},
+                        ],
+                    }
+                ]
+            },
+            "quadros": [],
+        }
+        profile = detect_profile(pdf, data)
+
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            data,
+            pdf,
+            profile=profile,
+            pdf_layout_text=f"{row_name} 78 60,00",
+        )
+
+        assert matches == [
+            ("prospettoLiquidazione730_3.quadros[0].value[0].value", "60.00")
+        ]
+        assert not mismatches
+        assert not unverifiable
+
+    def test_modello_730_does_not_confirm_amount_without_row_reference(self):
+        pdf = "Agenzia delle Entrate Modello 730 60 160"
+        row_name = "Acconto addizionale comunale IRPEF 2025"
+        data = {
+            "prospettoLiquidazione730_3": {
+                "quadros": [
+                    {
+                        "name": row_name,
+                        "ref": "78",
+                        "value": [
+                            {"name": "DICHIARANTE", "ref": "1", "value": "60.00"},
+                            {"name": "CONIUGE", "ref": "2", "value": None},
+                        ],
+                    }
+                ]
+            },
+            "quadros": [],
+        }
+        profile = detect_profile(pdf, data)
+
+        matches, mismatches, unverifiable = compare_json_with_pdf(
+            data,
+            pdf,
+            profile=profile,
+            pdf_layout_text=f"{row_name} 79 60,00",
+        )
+
+        assert not matches
+        assert not mismatches
+        assert unverifiable == [
+            ("prospettoLiquidazione730_3.quadros[0].value[0].value", "60.00")
+        ]
+
     def test_detects_inps_profile(self):
         profile = detect_profile(
             "Estratto conto previdenziale\nRegime generale\nCodice fiscale", {}

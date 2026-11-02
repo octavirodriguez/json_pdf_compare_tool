@@ -14,6 +14,10 @@ class DocumentProfile:
         """Return whether a short value is confidently represented in the PDF."""
         return False
 
+    def confident_row_value_hit(self, pdf_layout_text, json_data, path, value_str):
+        """Return whether a value is confirmed alongside its corresponding row."""
+        return False
+
     def should_skip_field(self, path):
         """Return whether this document does not expose the field for comparison."""
         return False

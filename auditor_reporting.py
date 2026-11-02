@@ -70,10 +70,19 @@ def generate_markdown_report(results, reports_dir):
             md.append(
                 "> **Note:** The JSON field exists, but no trace of its value — not even a "
                 "partial or coincidental one — was found anywhere in the PDF text. This is the "
-                "strongest signal of a genuine data problem.\n"
+                "strongest signal of a genuine data problem. The JSON source line below pinpoints "
+                "where the expected value appears in the input (for single-line JSON files, in the "
+                "formatted view with 4-space indentation); there is no matching PDF line to "
+                "cite when the value is absent.\n"
             )
             for path, val in r["mismatches"]:
                 md.append(f"* ❌ **JSON Path:** <mark>`{path}`</mark>")
+                source_line = r.get("json_value_lines", {}).get(path)
+                if source_line is not None:
+                    source = r.get("json_source", "JSON")
+                    md.append(
+                        f"  * **JSON Source:** `{source}`, line {source_line}"
+                    )
                 md.append(f"  * **Expected Value (JSON):** <mark>`{val}`</mark>")
                 action = "Check if this value appears in a different format, is truncated, or if pages are missing from the PDF."
                 if len(val) <= SHORT_CODE_HINT_LENGTH:
@@ -98,6 +107,12 @@ def generate_markdown_report(results, reports_dir):
             )
             for path, val in r["unverifiable"]:
                 md.append(f"* 🟡 **JSON Path:** <mark>`{path}`</mark>")
+                source_line = r.get("json_value_lines", {}).get(path)
+                if source_line is not None:
+                    source = r.get("json_source", "JSON")
+                    md.append(
+                        f"  * **JSON Source:** `{source}`, line {source_line}"
+                    )
                 md.append(f"  * **Expected Value (JSON):** <mark>`{val}`</mark>")
                 md.append("  * *Action:* Manually confirm whether this fact is stated (even implicitly) in the PDF.\n")
 
@@ -121,5 +136,3 @@ def generate_markdown_report(results, reports_dir):
 # name instead of requiring identical filenames. Unrelated names are handled
 # later using profile detection and matching field content.
 TRAILING_SUFFIX_LENGTH = 13
-
-

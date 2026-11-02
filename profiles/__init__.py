@@ -9,6 +9,7 @@ from .es_ss_bases_cotizacion import EsSsBasesCotizacionProfile
 from .es_ss_vida_laboral import EsSsVidaLaboralProfile
 from .fr_urssaf_autoentrepreneur import FrUrssafAutoentrepreneurProfile
 from .it_agenzia_entrate_certificazione_unica import ItAgenziaEntrateCertificazioneUnicaProfile
+from .it_agenzia_entrate_modello_730 import ItAgenziaEntrateModello730Profile
 from .it_agenzia_entrate_ricevuta import ItAgenziaEntrateRicevutaProfile
 from .it_anpr_certificato import ItAnprCertificatoProfile
 from .it_inps_estratto_conto import ItInpsEstrattoContoProfile
@@ -24,6 +25,7 @@ PROFILES = (
     EsSsVidaLaboralProfile(),
     FrUrssafAutoentrepreneurProfile(),
     ItAgenziaEntrateCertificazioneUnicaProfile(),
+    ItAgenziaEntrateModello730Profile(),
     ItAgenziaEntrateRicevutaProfile(),
     ItAnprCertificatoProfile(),
     ItInpsEstrattoContoProfile(),
