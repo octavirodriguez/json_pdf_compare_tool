@@ -1,6 +1,7 @@
 """Tests for file pairing, PDF extraction, and Markdown reports."""
 
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 from auditor import (
@@ -9,6 +10,7 @@ from auditor import (
     derive_base_key,
     extract_pdf_text,
 )
+from auditor_pairing import _json_value_lines
 
 # ---------------------------------------------------------------------------
 # derive_base_key
@@ -20,6 +22,10 @@ class TestDeriveBaseKey:
         result = derive_base_key(stem)
         assert result == "Document_Name"
 
+    def test_preserves_long_name_without_generated_suffix(self):
+        stem = "alice-2023-730"
+        assert derive_base_key(stem) == stem
+
     def test_short_stem_returned_as_is(self, capsys):
         short = "short"
         result = derive_base_key(short)
@@ -30,6 +36,17 @@ class TestDeriveBaseKey:
         stem = "x" * TRAILING_SUFFIX_LENGTH
         result = derive_base_key(stem)
         assert result == stem
+
+
+class TestJsonValueLines:
+    def test_tracks_nested_values_in_objects_and_arrays(self):
+        source = '{\n  "person": {\n    "name": "John",\n    "ids": [\n      "A",\n      "B"\n    ]\n  }\n}'
+
+        assert _json_value_lines(source) == {
+            "person.name": 3,
+            "person.ids[0]": 5,
+            "person.ids[1]": 6,
+        }
 # ---------------------------------------------------------------------------
 # extract_pdf_text — error handling
 # ---------------------------------------------------------------------------
@@ -99,6 +116,41 @@ class TestAuditDirectoryRecursively:
         assert results == []
         assert "Error reading JSON" in capsys.readouterr().out
 
+    def test_report_includes_json_line_for_discrepancy(self, tmp_path):
+        data = tmp_path / "data"
+        data.mkdir()
+        reports = tmp_path / "reports"
+        reports.mkdir()
+        (data / "example-document.pdf").write_bytes(b"fake")
+        (data / "example-document.json").write_text(
+            '{\n  "person": {\n    "name": "Expected Name"\n  }\n}',
+            encoding="utf-8",
+        )
+
+        with patch("auditor_pairing.extract_pdf_text", return_value="Other Name"):
+            results, report = audit_directory_recursively(str(data), str(reports))
+
+        assert results[0]["mismatches"] == [("person.name", "Expected Name")]
+        content = Path(report).read_text(encoding="utf-8")
+        assert "* **JSON Source:** `example-document.json`, line 3" in content
+
+    def test_minified_json_reports_line_in_formatted_view(self, tmp_path):
+        data = tmp_path / "data"
+        data.mkdir()
+        reports = tmp_path / "reports"
+        reports.mkdir()
+        (data / "example-document.pdf").write_bytes(b"fake")
+        (data / "example-document.json").write_text(
+            '{"a": {"b": "Present Value"}, "c": ["x", "Missing Value"]}',
+            encoding="utf-8",
+        )
+
+        with patch("auditor_pairing.extract_pdf_text", return_value="Present Value"):
+            _, report = audit_directory_recursively(str(data), str(reports))
+
+        content = Path(report).read_text(encoding="utf-8")
+        assert "`example-document.json`, line 7" in content
+
     def test_unrelated_filenames_are_paired_using_profile_and_content(
         self, tmp_path
     ):
@@ -152,4 +204,31 @@ class TestAuditDirectoryRecursively:
         assert len(results) == 1
         assert results[0]["matches"] == [("declaracion.estadoCivil", "1")]
 
+    def test_unrelated_filenames_are_paired_for_italian_modello_730(
+        self, tmp_path
+    ):
+        data = tmp_path / "data"
+        data.mkdir()
+        reports = tmp_path / "reports"
+        reports.mkdir()
+        (data / "official-return.pdf").write_bytes(b"fake")
+        (data / "provider-export.json").write_text(
+            json.dumps(
+                {
+                    "prospettoLiquidazione730_3": {},
+                    "quadros": [],
+                    "contribuente": {"codiceFiscale": "ABC123XYZ"},
+                }
+            ),
+            encoding="utf-8",
+        )
 
+        pdf_text = "Agenzia delle Entrate Modello 730 Codice fiscale ABC123XYZ"
+        with patch("auditor_pairing.extract_pdf_text", return_value=pdf_text):
+            results, report = audit_directory_recursively(str(data), str(reports))
+
+        assert report is not None
+        assert len(results) == 1
+        assert results[0]["matches"] == [
+            ("contribuente.codiceFiscale", "ABC123XYZ")
+        ]

@@ -16,7 +16,7 @@ from auditor_text import (
 )
 
 
-def compare_json_with_pdf(json_data, pdf_text, profile=None):
+def compare_json_with_pdf(json_data, pdf_text, profile=None, pdf_layout_text=None):
     """Recursively walks through the JSON and verifies if values exist within the PDF text."""
     mismatches = []
     matches = []
@@ -148,6 +148,12 @@ def compare_json_with_pdf(json_data, pdf_text, profile=None):
             if profile and profile.should_skip_field(path):
                 return
 
+            if profile and profile.confident_row_value_hit(
+                pdf_layout_text, json_data, path, value_str
+            ):
+                matches.append((path, value_str))
+                return
+
             if _should_skip_low_signal_short_value(path, value_str):
                 return
 
@@ -198,5 +204,4 @@ def compare_json_with_pdf(json_data, pdf_text, profile=None):
 # safely auto-reclassify these without also hiding real errors in those fields.
 # Rather than guess, the report just flags the possibility so a human can check.
 SHORT_CODE_HINT_LENGTH = 5
-
 

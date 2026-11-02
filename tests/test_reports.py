@@ -13,6 +13,8 @@ class TestGenerateMarkdownReport:
                 "matches": [("person.name", "John Doe")],
                 "mismatches": [("person.taxId", "XYZ999")],
                 "unverifiable": [("person.status", "1")],
+                "json_source": "sample_doc.json",
+                "json_value_lines": {"person.taxId": 4, "person.status": 5},
             }
         ]
         reports_dir = tmp_path / "reports"
@@ -22,6 +24,8 @@ class TestGenerateMarkdownReport:
         content = Path(report_path).read_text(encoding="utf-8")
 
         assert "* ❌ **JSON Path:** <mark>`person.taxId`</mark>" in content
+        assert "* **JSON Source:** `sample_doc.json`, line 4" in content
         assert "* **Expected Value (JSON):** <mark>`XYZ999`</mark>" in content
         assert "* 🟡 **JSON Path:** <mark>`person.status`</mark>" in content
+        assert "* **JSON Source:** `sample_doc.json`, line 5" in content
         assert "* **Expected Value (JSON):** <mark>`1`</mark>" in content
